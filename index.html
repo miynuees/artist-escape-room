@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>🗺️ 작가 방탈출 제작 · 체험 도구</title>
-<script src="https://cdn.jsdelivr.net/npm/qr-code-styling@1.6.0-rc.1/lib/qr-code-styling.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/lz-string@1.5.0/libs/lz-string.min.js"></script>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Gaegu:wght@400;700&family=Nanum+Pen+Script&family=Noto+Sans+KR:wght@300;400;500;700&family=Playfair+Display:wght@400;700&family=Jua&family=Orbitron:wght@500;700&display=swap');
@@ -1338,22 +1338,18 @@ async function renderQRView() {
         );
         setTimeout(() => {
           const box = document.getElementById(id);
-          if (!box || !window.QRCodeStyling) return;
+          if (!box || !window.QRCode) return;
+          box.innerHTML = '';
           try {
-            const qr = new QRCodeStyling({
+            new QRCode(box, {
+              text: url,
               width: 180, height: 180,
-              type: 'svg',
-              data: url,
-              margin: 4,
-              qrOptions: { errorCorrectionLevel: 'M' },
-              dotsOptions: { color: '#2a2a2a', type: 'dots' },
-              cornersSquareOptions: { color: '#2a2a2a', type: 'extra-rounded' },
-              cornersDotOptions: { color: '#2a2a2a', type: 'dot' },
-              backgroundOptions: { color: '#ffffff' },
+              colorDark: '#2a2a2a',
+              colorLight: '#ffffff',
+              correctLevel: QRCode.CorrectLevel.M,
             });
-            qr.append(box);
           } catch (err) {
-            box.innerHTML = `<div style="padding:20px; color:#c04040; font-size:11px;">⚠️ QR 생성 실패</div>`;
+            box.innerHTML = `<div style="padding:20px; color:#c04040; font-size:11px;">⚠️ QR 생성 실패 (${url.length}자)</div>`;
           }
         }, 30);
         return item;

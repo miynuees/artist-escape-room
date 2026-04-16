@@ -935,7 +935,7 @@ function renderLanding() {
     ),
     el('div', { class: 'landing' },
       el('div', { class: 'hero' }, '어떤 작가의 방탈출을 만들까요?'),
-      el('div', { class: 'hero-sub' }, '작가를 고르면 색·폰트가 자동 적용돼요. 내용은 모둠이 채웁니다.'),
+      
       el('div', { class: 'artist-grid' },
         ...SELECTABLE_ARTISTS.map(key => {
           const p = ARTIST_PRESETS[key];

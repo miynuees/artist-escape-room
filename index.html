@@ -1,0 +1,1654 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🗺️ 작가 방탈출 제작 · 체험 도구</title>
+<script src="https://cdn.jsdelivr.net/npm/qr-code-styling@1.6.0-rc.1/lib/qr-code-styling.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/lz-string@1.5.0/libs/lz-string.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Gaegu:wght@400;700&family=Nanum+Pen+Script&family=Noto+Sans+KR:wght@300;400;500;700&family=Playfair+Display:wght@400;700&family=Jua&family=Orbitron:wght@500;700&display=swap');
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --main: #8ab861;
+  --accent: #f0c850;
+  --bg: #f5f9f0;
+  --card: #ffffff;
+  --text: #3a4a2e;
+  --muted: #7a8a66;
+  --font-body: 'Noto Sans KR', sans-serif;
+  --font-display: 'Gaegu', sans-serif;
+}
+
+/* 작가 테마 */
+body[data-artist="gogh"] {
+  --main: #e8a838; --accent: #2a4680;
+  --bg: linear-gradient(135deg, #fef5d0 0%, #fffbe8 100%);
+  --font-display: 'Gaegu', sans-serif;
+}
+body[data-artist="frida"] {
+  --main: #c43878; --accent: #3a7a5a;
+  --bg: linear-gradient(135deg, #fde8ef 0%, #fff5f5 100%);
+  --font-display: 'Jua', sans-serif;
+}
+body[data-artist="picasso"] {
+  --main: #3a6a8a; --accent: #c04838;
+  --bg: linear-gradient(135deg, #e0ecf4 0%, #f5f0e8 100%);
+  --font-display: 'Playfair Display', serif;
+}
+body[data-artist="paik"] {
+  --main: #6a3a9a; --accent: #9ab0c0;
+  --bg: linear-gradient(135deg, #ece0f4 0%, #f0f0f5 100%);
+  --font-display: 'Orbitron', sans-serif;
+}
+body[data-artist="warhol"] {
+  --main: #c04040; --accent: #40a0c0;
+  --bg: linear-gradient(135deg, #fde8e8 0%, #e8f4fd 100%);
+  --font-display: 'Jua', sans-serif;
+}
+body[data-artist="monet"] {
+  --main: #6a9ac0; --accent: #e8a8b8;
+  --bg: linear-gradient(135deg, #e8f0f5 0%, #fce8ec 100%);
+  --font-display: 'Playfair Display', serif;
+}
+body[data-artist="munch"] {
+  --main: #c04838; --accent: #3a3a5a;
+  --bg: linear-gradient(135deg, #fde8e0 0%, #e8e8f0 100%);
+  --font-display: 'Nanum Pen Script', cursive;
+}
+body[data-artist="leejungseop"] {
+  --main: #8a6a4a; --accent: #c0b090;
+  --bg: linear-gradient(135deg, #f5ede0 0%, #f0e8d8 100%);
+  --font-display: 'Gaegu', sans-serif;
+}
+
+body {
+  font-family: var(--font-body);
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  line-height: 1.6;
+  padding: 20px;
+}
+
+/* ========== 공통 컴포넌트 ========== */
+.container {
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+h1, h2, h3 { font-family: var(--font-display); color: var(--main); }
+
+h1 { font-size: 32px; margin-bottom: 8px; }
+h2 { font-size: 24px; margin: 24px 0 12px; }
+h3 { font-size: 18px; margin: 14px 0 8px; color: var(--text); }
+
+button {
+  font-family: var(--font-body);
+  padding: 10px 18px;
+  border: none;
+  border-radius: 10px;
+  background: var(--main);
+  color: white;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: opacity 0.2s;
+}
+button:hover { opacity: 0.88; }
+button.ghost { background: transparent; border: 2px solid var(--main); color: var(--main); }
+button.small { padding: 6px 12px; font-size: 13px; }
+button.accent { background: var(--accent); }
+
+input, textarea, select {
+  width: 100%;
+  font-family: var(--font-body);
+  padding: 10px 12px;
+  border: 1.5px solid #d4e4b8;
+  border-radius: 8px;
+  font-size: 14px;
+  background: white;
+  color: var(--text);
+}
+input:focus, textarea:focus { outline: none; border-color: var(--main); }
+textarea { min-height: 80px; resize: vertical; line-height: 1.5; }
+
+label {
+  display: block;
+  font-weight: 700;
+  font-size: 13px;
+  color: var(--text);
+  margin-bottom: 5px;
+}
+.field { margin-bottom: 14px; }
+.field .help { font-size: 11.5px; color: var(--muted); margin-top: 4px; font-style: italic; }
+
+.card {
+  background: var(--card);
+  border-radius: 16px;
+  padding: 22px 26px;
+  box-shadow: 0 4px 16px rgba(120, 160, 90, 0.1);
+  margin-bottom: 16px;
+}
+
+.hidden { display: none !important; }
+
+/* ========== 헤더 ========== */
+.app-header {
+  background: var(--card);
+  border-radius: 18px;
+  padding: 22px 28px;
+  margin-bottom: 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  box-shadow: 0 4px 16px rgba(120, 160, 90, 0.1);
+}
+.app-header .brand h1 {
+  font-size: 26px;
+  color: var(--main);
+}
+.app-header .brand .sub {
+  font-size: 13px;
+  color: var(--muted);
+  margin-top: 2px;
+}
+.app-header .mode-switch {
+  display: flex;
+  gap: 8px;
+}
+
+/* ========== 랜딩: 작가 선택 ========== */
+.landing {
+  text-align: center;
+  padding: 20px 10px;
+}
+.landing .hero {
+  font-family: var(--font-display);
+  font-size: 34px;
+  color: var(--main);
+  margin-bottom: 10px;
+}
+.landing .hero-sub {
+  color: var(--muted);
+  margin-bottom: 30px;
+  font-size: 15px;
+}
+
+.artist-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 16px;
+  margin-bottom: 30px;
+}
+
+.artist-pick {
+  background: var(--card);
+  border-radius: 14px;
+  padding: 24px 16px;
+  cursor: pointer;
+  border: 3px solid transparent;
+  transition: transform 0.15s, border-color 0.15s;
+  text-align: center;
+}
+.artist-pick:hover {
+  transform: translateY(-3px);
+  border-color: var(--artist-color);
+}
+.artist-pick .emoji { font-size: 42px; margin-bottom: 8px; }
+.artist-pick .name {
+  font-family: var(--font-display);
+  font-size: 22px;
+  color: var(--artist-color);
+  margin-bottom: 4px;
+}
+.artist-pick .years { font-size: 12px; color: var(--muted); }
+.artist-pick[data-a="gogh"] { --artist-color: #e8a838; }
+.artist-pick[data-a="frida"] { --artist-color: #c43878; }
+.artist-pick[data-a="picasso"] { --artist-color: #3a6a8a; }
+.artist-pick[data-a="paik"] { --artist-color: #6a3a9a; }
+.artist-pick[data-a="warhol"] { --artist-color: #c04040; }
+.artist-pick[data-a="monet"] { --artist-color: #6a9ac0; }
+.artist-pick[data-a="munch"] { --artist-color: #c04838; }
+.artist-pick[data-a="leejungseop"] { --artist-color: #8a6a4a; }
+
+/* ========== 빌더 ========== */
+.builder-layout {
+  display: grid;
+  grid-template-columns: 220px 1fr;
+  gap: 16px;
+}
+@media (max-width: 720px) { .builder-layout { grid-template-columns: 1fr; } }
+
+.room-nav {
+  background: var(--card);
+  border-radius: 14px;
+  padding: 16px 12px;
+  box-shadow: 0 4px 16px rgba(120, 160, 90, 0.1);
+  height: fit-content;
+}
+.room-nav h3 { font-size: 15px; margin-bottom: 10px; color: var(--main); font-family: var(--font-display); font-weight: 700; }
+
+.room-btn {
+  display: block;
+  width: 100%;
+  padding: 10px 12px;
+  margin-bottom: 5px;
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+  border-radius: 8px;
+  border: 1.5px solid transparent;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.room-btn:hover { background: var(--bg); }
+.room-btn.active {
+  background: var(--main);
+  color: white;
+  border-color: var(--main);
+}
+.room-btn .num { font-weight: 700; margin-right: 4px; }
+.room-btn.done::after {
+  content: " ✓";
+  color: var(--main);
+  font-weight: 700;
+}
+.room-btn.active.done::after { color: white; }
+
+.room-form .room-header {
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 2px dashed #d4e4b8;
+}
+.room-form .room-header h2 { margin: 0; }
+.room-form .room-header .role { color: var(--muted); font-size: 13px; margin-top: 3px; }
+
+.builder-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 2px dashed #d4e4b8;
+}
+
+.saved-notice {
+  font-size: 11px;
+  color: var(--muted);
+  font-style: italic;
+}
+
+/* ========== QR 화면 ========== */
+.qr-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+  margin: 20px 0;
+}
+.qr-item {
+  background: white;
+  border: 1.5px solid #e8efd8;
+  border-radius: 18px;
+  padding: 18px 14px 14px;
+  text-align: center;
+  box-shadow: 0 4px 14px rgba(120,160,90,0.08);
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+.qr-item:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(120,160,90,0.15);
+}
+.qr-item .title {
+  font-family: var(--font-display);
+  color: var(--main);
+  font-size: 18px;
+  margin-bottom: 4px;
+}
+.qr-item .sub {
+  font-size: 11px;
+  color: var(--muted);
+  margin-bottom: 12px;
+}
+.qr-item .qr-box {
+  background: white;
+  padding: 6px;
+  display: inline-block;
+  border-radius: 12px;
+  line-height: 0;
+}
+.qr-item .qr-box svg { display: block; }
+.qr-item .url-copy {
+  font-size: 10px;
+  color: var(--muted);
+  margin-top: 6px;
+  word-break: break-all;
+}
+
+@media print {
+  body { background: white; padding: 0; }
+  .no-print { display: none !important; }
+  .qr-item { page-break-inside: avoid; border: 2px solid #333; }
+}
+
+/* ========== 체험 플레이어 ========== */
+.player-page {
+  max-width: 540px;
+  margin: 0 auto;
+}
+
+.player-escape-title {
+  font-family: var(--font-display);
+  font-size: 14px;
+  color: var(--muted);
+  margin-bottom: 8px;
+  letter-spacing: 0.5px;
+  opacity: 0.85;
+}
+
+.player-room-tag {
+  display: inline-block;
+  background: var(--main);
+  color: white;
+  padding: 5px 14px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.player-room-title {
+  font-family: var(--font-display);
+  font-size: 30px;
+  color: var(--main);
+  margin-bottom: 12px;
+}
+
+.player-story {
+  background: white;
+  border-left: 4px solid var(--accent);
+  padding: 14px 18px;
+  border-radius: 8px;
+  margin-bottom: 18px;
+  font-size: 15px;
+  line-height: 1.7;
+  color: var(--text);
+  white-space: pre-wrap;
+}
+
+.player-overall-story {
+  position: relative;
+  background: linear-gradient(135deg, rgba(255,255,255,0.7) 0%, rgba(255,255,255,0.4) 100%);
+  border: 1.5px solid var(--main);
+  border-radius: 14px;
+  padding: 24px 26px 22px;
+  margin-bottom: 22px;
+  font-family: var(--font-body);
+  font-size: 14.5px;
+  line-height: 1.9;
+  color: var(--text);
+  white-space: pre-wrap;
+  text-align: center;
+  font-weight: 300;
+  letter-spacing: 0.3px;
+  box-shadow: 0 4px 18px rgba(0,0,0,0.05);
+}
+.player-overall-story::before {
+  content: '✦  PROLOGUE  ✦';
+  display: block;
+  font-family: var(--font-body);
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 700;
+  letter-spacing: 3px;
+  color: var(--main);
+  margin-bottom: 14px;
+  opacity: 0.8;
+}
+.player-overall-story::after {
+  content: '';
+  display: block;
+  width: 50px;
+  height: 1px;
+  background: var(--main);
+  margin: 14px auto 0;
+  opacity: 0.4;
+}
+
+.player-question {
+  background: var(--card);
+  border: 2.5px solid var(--main);
+  border-radius: 14px;
+  padding: 18px 20px;
+  margin-bottom: 16px;
+}
+.player-question h3 {
+  color: var(--main);
+  margin-bottom: 10px;
+  font-family: var(--font-display);
+  font-size: 20px;
+}
+.player-question .q-text {
+  font-size: 15px;
+  margin-bottom: 14px;
+  white-space: pre-wrap;
+}
+
+.answer-input-wrap {
+  display: flex;
+  gap: 6px;
+}
+.answer-input-wrap input { flex: 1; font-size: 15px; }
+
+.feedback {
+  margin-top: 14px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  font-size: 14px;
+  display: none;
+  white-space: pre-wrap;
+  line-height: 1.6;
+}
+.feedback.show { display: block; }
+.feedback.correct {
+  background: #e8f5d8;
+  border-left: 4px solid #5a7738;
+  color: #3a5a1a;
+}
+.feedback.wrong {
+  background: #fde8e8;
+  border-left: 4px solid #c04040;
+  color: #8a2020;
+}
+
+.hint-box {
+  margin-top: 12px;
+  background: #fffbe8;
+  border: 1.5px dashed var(--accent);
+  border-radius: 10px;
+  padding: 12px 16px;
+  font-size: 14px;
+  color: #8a6a1a;
+  display: none;
+}
+.hint-box.show { display: block; }
+.hint-btn {
+  background: transparent;
+  color: var(--accent);
+  border: 1.5px solid var(--accent);
+  font-size: 12px;
+  padding: 5px 12px;
+  margin-top: 10px;
+}
+
+/* ========== 마지막방 공유판 ========== */
+.reflection-box {
+  background: var(--card);
+  border: 2.5px solid var(--main);
+  border-radius: 14px;
+  padding: 20px;
+  margin-bottom: 16px;
+}
+.reflection-box h3 { color: var(--main); font-family: var(--font-display); font-size: 22px; margin-bottom: 10px; }
+.reflection-box textarea { min-height: 90px; }
+
+.share-board {
+  background: white;
+  border-radius: 14px;
+  padding: 20px;
+  margin-top: 16px;
+}
+.share-board h3 {
+  font-family: var(--font-display);
+  color: var(--main);
+  margin-bottom: 14px;
+  font-size: 20px;
+}
+
+.share-item {
+  background: var(--bg);
+  border-left: 4px solid var(--accent);
+  padding: 10px 14px;
+  border-radius: 8px;
+  margin-bottom: 10px;
+  font-size: 13.5px;
+  color: var(--text);
+  line-height: 1.6;
+  white-space: pre-wrap;
+}
+.share-item .who {
+  font-size: 11px;
+  color: var(--muted);
+  margin-top: 4px;
+}
+
+.share-empty {
+  color: var(--muted);
+  font-style: italic;
+  text-align: center;
+  padding: 16px;
+  font-size: 13px;
+}
+
+/* ========== 단서 이미지 ========== */
+.image-field {
+  background: #f7faf2;
+  border: 1.5px dashed #c5dba8;
+  border-radius: 10px;
+  padding: 12px 14px;
+}
+.image-field .upload-row {
+  display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
+}
+.image-field input[type="file"] { display: none; }
+.image-field .file-btn {
+  background: var(--main); color: white;
+  padding: 8px 14px; border-radius: 8px;
+  font-size: 13px; cursor: pointer; font-weight: 500;
+}
+.image-field .file-btn:hover { opacity: 0.88; }
+.image-field .status {
+  font-size: 12px; color: var(--muted);
+}
+.image-field .status.uploading { color: #c08038; }
+.image-field .status.error { color: #c04040; }
+.image-field .status.ok { color: #5a7738; font-weight: 600; }
+.image-field .preview {
+  margin-top: 10px;
+  position: relative; display: inline-block;
+}
+.image-field .preview img {
+  max-width: 200px; max-height: 140px;
+  border-radius: 8px; border: 2px solid var(--main);
+}
+.image-field .preview .remove {
+  position: absolute; top: -8px; right: -8px;
+  width: 24px; height: 24px; border-radius: 50%;
+  background: #c04040; color: white; border: none;
+  font-size: 14px; cursor: pointer; padding: 0;
+  display: flex; align-items: center; justify-content: center;
+}
+.image-field .url-input {
+  margin-top: 8px;
+  font-size: 12px; padding: 6px 10px;
+}
+
+.clue-image-wrap {
+  margin: 14px 0 18px;
+  text-align: center;
+}
+.clue-image-wrap img {
+  max-width: 100%;
+  max-height: 320px;
+  border-radius: 12px;
+  border: 3px solid var(--main);
+  cursor: zoom-in;
+  box-shadow: 0 4px 14px rgba(0,0,0,0.12);
+  transition: transform 0.15s;
+}
+.clue-image-wrap img:hover { transform: scale(1.02); }
+.clue-image-wrap .caption {
+  font-size: 12px; color: var(--muted);
+  margin-top: 6px; font-style: italic;
+}
+
+.lightbox {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.9);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 9999; cursor: zoom-out; padding: 20px;
+}
+.lightbox img { max-width: 100%; max-height: 100%; border-radius: 8px; }
+.lightbox .close-hint {
+  position: absolute; top: 16px; right: 20px;
+  color: white; font-size: 14px;
+  background: rgba(255,255,255,0.18);
+  padding: 6px 14px; border-radius: 20px;
+}
+
+/* ========== 헬프 ========== */
+.help-strip {
+  background: #fffbe8;
+  border-left: 4px solid var(--accent);
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-size: 12.5px;
+  color: #5a5038;
+  margin-bottom: 16px;
+  line-height: 1.6;
+}
+
+.nav-back {
+  font-size: 13px;
+  color: var(--muted);
+  background: transparent;
+  padding: 4px 8px;
+}
+
+footer {
+  text-align: center;
+  margin-top: 30px;
+  padding: 18px 0;
+  color: var(--muted);
+  font-size: 12px;
+  border-top: 1px dashed #c5dba8;
+}
+
+.center { text-align: center; }
+</style>
+</head>
+<body data-artist="gogh">
+
+<div id="app"></div>
+
+<script>
+// ==================== 이미지 업로드 설정 ====================
+// CF Worker 배포 후 아래 URL을 본인 워커 URL로 바꿔주세요.
+// 예: https://escape-images.your-name.workers.dev
+const IMAGE_UPLOAD_URL = 'https://escape-images.may92kr.workers.dev';
+
+// ==================== 데이터 & 상태 ====================
+const ARTIST_PRESETS = {
+  // 학생이 선택하는 5명 (수업 대상 작가)
+  gogh: { emoji: '🌻', name: '빈센트 반 고흐', years: '1853–1890', mainColor: '#e8a838', accent: '#2a4680' },
+  frida: { emoji: '🌺', name: '프리다 칼로', years: '1907–1954', mainColor: '#c43878', accent: '#3a7a5a' },
+  picasso: { emoji: '🎭', name: '파블로 피카소', years: '1881–1973', mainColor: '#3a6a8a', accent: '#c04838' },
+  paik: { emoji: '📺', name: '백남준', years: '1932–2006', mainColor: '#6a3a9a', accent: '#9ab0c0' },
+  warhol: { emoji: '🥫', name: '앤디 워홀', years: '1928–1987', mainColor: '#c04040', accent: '#40a0c0' },
+  // 예시 전용 3명 (선택지엔 안 나옴)
+  monet: { emoji: '🌷', name: '클로드 모네', years: '1840–1926', mainColor: '#6a9ac0', accent: '#e8a8b8' },
+  munch: { emoji: '😱', name: '에드바르 뭉크', years: '1863–1944', mainColor: '#c04838', accent: '#3a3a5a' },
+  leejungseop: { emoji: '🐂', name: '이중섭', years: '1916–1956', mainColor: '#8a6a4a', accent: '#c0b090' },
+};
+
+// 학생이 직접 선택할 수 있는 작가 (예시 전용 작가는 제외)
+const SELECTABLE_ARTISTS = ['gogh', 'frida', 'picasso', 'paik', 'warhol'];
+
+const ROOM_CONFIG = [
+  { idx: 0, tag: '🌀 시작방', role: '이야기 도입 (단서①)', hasQ: false, storyLabel: '오프닝 스토리 (플레이어를 세계로 끌어들이는 첫 마디)', storyHelp: '예: "당신은 테오입니다. 형의 노란 방 앞에 섰습니다..."' },
+  { idx: 1, tag: '🔍 1방', role: '감정 발견 (단서② + Q1)', hasQ: true },
+  { idx: 2, tag: '❓ 2방', role: '의미 해독 (단서③ + Q2)', hasQ: true },
+  { idx: 3, tag: '💫 3방', role: '작가 심화 (단서④ + Q3)', hasQ: true },
+  { idx: 4, tag: '⚡ 4방', role: '핵심 클라이맥스 (단서⑤ + Q4)', hasQ: true },
+  { idx: 5, tag: '🎭 마지막방', role: '자기 연결 (Q5) · 공유판 활성화', hasQ: false, isFinal: true },
+];
+
+// 🎨 작가별 완성 샘플 (학생들이 구조를 참고할 수 있는 예시 — 일부러 수업 대상 5명과는 다른 작가들로 구성)
+const SAMPLES = {
+  monet: {
+    artist: 'monet',
+    title: '모네의 지베르니 정원',
+    overallStory: `당신은 모네의 친구이자 화가 지망생입니다.
+프랑스 지베르니의 그의 정원에 들어섭니다.
+연못엔 수련이 피었고, 같은 장면이 하루 종일 다른 얼굴을 보여줍니다.
+빛이 어떻게 세상을 바꾸는지, 함께 바라보세요.`,
+    rooms: [
+      { idx: 0, name: '시작방',
+        story: `새벽의 정원. 물안개가 피어오르고, 일본식 다리가 희미하게 보입니다.
+이젤 위 모네의 메모:
+"빛은 그림의 진짜 주인공이다."`,
+        question: null, answer: null, hint: null, success: null },
+      { idx: 1, name: '루앙 대성당',
+        story: `벽엔 루앙 대성당을 그린 4점의 그림이 걸려 있습니다.
+모두 같은 성당이지만, 새벽·한낮·저녁·안개 속에서 색이 전혀 다릅니다.
+한 그림만이 유독 형체가 흐릿하게 녹아들어 있습니다.`,
+        question: `4점 중 가장 외로워 보이는 성당은 어떤 시간대인가요? (두 글자)`,
+        answer: '안개',
+        hint: `성당의 윤곽이 사라진 듯, 희뿌옇게 번진 그림을 찾아보세요.`,
+        success: `모네는 같은 대상을 30번 넘게 그렸어요. 시간이 달라지면 사물도 달라지니까요.` },
+      { idx: 2, name: '수련의 색',
+        story: `수련 연못 앞. 아침·점심·저녁·밤의 연못 그림 4점이 펼쳐져 있습니다.
+빛의 색은 시간마다 다르지만, 네 그림 속에 변하지 않는 한 송이 수련이 있습니다.
+늘 같은 자리, 늘 같은 색으로.`,
+        question: `4점 모두에 등장하는 그 한 송이 수련의 색은? (두 글자)`,
+        answer: '분홍',
+        hint: `모네가 가장 사랑한 색이자, 수련의 가장 따뜻한 색이에요.`,
+        success: `모네는 그 수련을 8년간 그렸어요. 빛이 변해도 변하지 않는 것 — 사랑처럼요.` },
+      { idx: 3, name: '보이지 않는 것',
+        story: `젊은 시절 또렷한 그림과 말년 백내장 시기 그림이 나란히 걸려 있습니다.
+말년의 그림엔 형체가 녹아 있고, 색만 둥둥 떠 있습니다.
+시력을 잃어가면서도 그는 붓을 놓지 않았습니다.`,
+        question: `모네는 시력을 잃으면서 무엇을 그리기 시작했을까요? (두 글자)`,
+        answer: '감정',
+        hint: `형체가 안 보이면 남는 건 빛과 ___뿐이에요. 느낌의 다른 말이죠.`,
+        success: `모네는 보이지 않는 것을 보기 시작했어요. 눈이 아닌 마음으로요.` },
+      { idx: 4, name: '오랑주리의 수련',
+        story: `방 사면을 둘러싼 거대한 수련 파노라마.
+파리 오랑주리 미술관의 〈수련〉 연작입니다.
+그림엔 해가 보이지 않고, 연못 전체가 푸른빛으로 잠겨 있습니다.`,
+        question: `이 연못은 어떤 시간대의 모습일까요? (한 글자)`,
+        answer: '밤',
+        hint: `해는 없고, 수련은 푸른빛 속에 고요히 잠겨 있어요. 가장 어두운 시간.`,
+        success: `모네는 죽기 전까지 이 수련을 그렸어요. 파리에 기부한 그의 마지막 선물이죠.` },
+      { idx: 5, name: '자기 연결',
+        story: `정원 한쪽에 빈 캔버스와 물감이 놓여 있습니다.
+당신 차례입니다.`,
+        question: `당신 하루 중 가장 아름다운 빛의 순간은 언제인가요? 한 줄로 남겨주세요.`,
+        answer: null, hint: null, success: null },
+    ],
+  },
+
+  munch: {
+    artist: 'munch',
+    title: '뭉크의 절규하는 다리',
+    overallStory: `당신은 에드바르 뭉크의 오슬로 작업실에 들어섭니다.
+창밖엔 피오르드가 보이고, 노을진 다리 그림이 벽에 걸려 있습니다.
+평생 죽음과 불안을 그린 남자가, 사실은 무엇을 말하고 싶었는지 따라가 보세요.`,
+    rooms: [
+      { idx: 0, name: '시작방',
+        story: `낡은 작업실. 벽엔 〈절규〉가 걸려 있고, 책상엔 일기장이 펼쳐져 있습니다.
+일기장 첫 줄:
+"나는 보이지 않는 공포를 그리고 싶었다."`,
+        question: null, answer: null, hint: null, success: null },
+      { idx: 1, name: '절규',
+        story: `〈절규〉를 자세히 들여다봅니다.
+핏빛 노을 하늘, 다리 위 얼굴을 감싸 쥐고 비명 지르는 인물.
+뒤쪽에선 두 사람이 무심히 걸어가고 있습니다.
+그의 입에서 나오는 것은 소리일까요, 다른 무엇일까요?`,
+        question: `비명을 지르는 인물의 입에서 나오는 것은 무엇일까요? (두 글자)`,
+        answer: '감정',
+        hint: `뭉크는 이 그림을 산책 중 "자연을 관통하는 비명"을 느낀 후 그렸어요. 소리가 아니라 속의 ___.`,
+        success: `〈절규〉는 귀를 막은 듯 보이지만, 사실은 자기 안의 비명을 듣고 있는 거예요.` },
+      { idx: 2, name: '어린 시절의 죽음',
+        story: `책상 서랍 속 편지 몇 장. 어머니, 누나, 동생의 죽음에 관한 글입니다.
+그 옆엔 〈병든 소녀〉와 〈시체실에서〉의 작은 사본.
+"죽음은 내 형제이자 내 어릴 적 친구" — 뭉크의 말.`,
+        question: `뭉크에게 죽음이 처음 찾아온 것은 몇 살 때였을까요? (어머니가 돌아가신 나이)`,
+        answer: '5',
+        hint: `뭉크는 어머니를 아주 어려서 잃었어요. 손가락 한 손에 꼽히는 나이죠.`,
+        success: `뭉크는 평생 죽음의 그림자 속에서 살았어요. 그래서 더 간절히 그림을 붙잡았죠.` },
+      { idx: 3, name: '사랑의 공포',
+        story: `벽엔 〈생의 프리즈〉 연작이 걸려 있습니다 — 〈질투〉, 〈마돈나〉, 〈흡혈귀〉.
+모두 '사랑'을 그린 작품이지만, 분위기는 하나같이 무겁고 불편합니다.
+뭉크에게 사랑은 무엇이었을까요?`,
+        question: `뭉크가 그린 사랑에는 어떤 감정이 섞여 있나요? (두 글자)`,
+        answer: '공포',
+        hint: `〈흡혈귀〉는 사랑받는 사람이 오히려 피를 빨리는 장면이에요. 뭉크에게 사랑은 그만큼 ___스러웠어요.`,
+        success: `뭉크에게 사랑은 구원이자 공포였어요. 가까워질수록 잃을까 두려웠거든요.` },
+      { idx: 4, name: '다리 위의 진실',
+        story: `실제 〈절규〉의 배경인 오슬로 에케베르그 언덕의 다리 사진.
+해질녘 붉은 하늘. 그러나 다리 위엔 아무도 없습니다.
+그가 들었다던 '자연을 관통하는 비명'은 과연 어디서 온 것이었을까요?`,
+        question: `뭉크가 다리 위에서 깨달은 것은 자기 안의 무엇이었을까요? (두 글자)`,
+        answer: '불안',
+        hint: `비명은 바깥에서 온 게 아니라 안에서 나온 거였어요. 숨겨뒀던 감정의 이름이죠.`,
+        success: `뭉크는 도망치지 않고 자기의 불안을 그렸어요. 숨기지 않고 인정하는 것 — 그게 그의 용기였죠.` },
+      { idx: 5, name: '자기 연결',
+        story: `책상 위에 빈 노트 한 권과 펜이 놓여 있습니다.
+뭉크는 언제나 일기에 먼저 감정을 적었습니다.`,
+        question: `당신이 평소 숨기고 있는 가장 큰 감정은 무엇인가요? 한 줄로 남겨주세요.`,
+        answer: null, hint: null, success: null },
+    ],
+  },
+
+  leejungseop: {
+    artist: 'leejungseop',
+    title: '이중섭의 은박지 방',
+    overallStory: `1952년 부산, 피란민 시절.
+당신은 화가 이중섭의 작은 쪽방에 들어섭니다.
+책상 위엔 담뱃갑 은박지와 못 하나, 일본에서 온 편지 한 장.
+일본으로 떠나보낸 아내와 두 아들을 그리워하며, 그는 은박지에 그림을 새겼습니다.
+가난 속에서도 솟아난 사랑의 흔적을 따라가 보세요.`,
+    rooms: [
+      { idx: 0, name: '시작방',
+        story: `좁은 쪽방. 책상 위엔 구겨진 담뱃갑과 은박지 조각들, 낡은 못 하나.
+벽엔 가족 사진 한 장이 비스듬히 걸려 있습니다.
+"우리 가족에게, 아빠가…"`,
+        question: null, answer: null, hint: null, success: null },
+      { idx: 1, name: '황소의 눈',
+        story: `벽엔 이중섭의 〈황소〉 그림들이 줄지어 걸려 있습니다.
+붉은 소, 흰 소, 웃는 소. 색도 표정도 다 다르지만, 모두 눈이 큽니다.
+그 눈빛은 어딘가를 그리워하는 듯합니다.`,
+        question: `이중섭에게 '소'는 결국 무엇이었을까요? (두 글자)`,
+        answer: '자신',
+        hint: `소는 한국을 상징하기도 했지만, 더 개인적인 의미가 있었어요. 눈빛이 곧 그의 눈빛이에요.`,
+        success: `이중섭은 소를 통해 자신을 그렸어요. 강인하지만 순한, 그리워하지만 견디는 — 자기 초상이었죠.` },
+      { idx: 2, name: '은박지의 비밀',
+        story: `책상 위 담뱃갑 은박지에 못으로 긁은 흔적이 보입니다.
+뛰노는 아이들, 물고기, 게, 꽃들 — 가늘게 긁힌 선 하나하나.
+캔버스도, 물감도, 종이도 살 수 없었던 시절의 그림입니다.`,
+        question: `이중섭이 은박지에 그림을 새긴 가장 큰 이유는? (두 글자)`,
+        answer: '가난',
+        hint: `그림 그릴 종이도 물감도 살 돈이 없었어요. 담뱃갑 속 ___이 그의 캔버스가 됐죠.`,
+        success: `이중섭은 가난조차 예술로 만들었어요. 없는 것에서 만들어내는 것 — 그게 그의 힘이었죠.` },
+      { idx: 3, name: '그림 편지',
+        story: `책상 서랍 속 편지 뭉치들.
+일본의 아내 마사코(이남덕)가 보낸 편지, 두 아들이 그린 그림 편지, 그리고 이중섭이 아이들에게 보낸 답장들.
+이중섭의 편지엔 글보다 더 많은 것이 있었습니다.`,
+        question: `이중섭이 아이들에게 편지를 쓸 때 글보다 더 많이 사용한 것은? (두 글자)`,
+        answer: '그림',
+        hint: `글을 아직 잘 못 읽는 아이들도 알아볼 수 있는 것. 화가가 가장 잘하는 것이죠.`,
+        success: `이중섭은 아이들에게 그림 편지를 보냈어요. 글은 흐려져도 그림은 마음에 오래 남으니까요.` },
+      { idx: 4, name: '길 떠나는 가족',
+        story: `벽 한 면을 차지한 큰 그림 — 〈길 떠나는 가족〉.
+소달구지에 아내와 두 아들을 태우고, 이중섭이 앞장서서 꽃길을 걷습니다.
+하늘엔 새들이 날고, 모두가 환하게 웃고 있습니다.
+하지만 이 풍경은 과연 실제였을까요?`,
+        question: `이 그림은 실제 있었던 일일까요, 이중섭의 꿈일까요? (한 글자)`,
+        answer: '꿈',
+        hint: `이중섭은 아내와 아이들을 다시 만나지 못한 채 세상을 떠났어요. 이 가족 여행은 오직 그림 속에서만…`,
+        success: `이중섭은 이룰 수 없던 가족 여행을 그림으로 그렸어요. 그리움이 만든 세계였죠.` },
+      { idx: 5, name: '자기 연결',
+        story: `책상 위에 빈 은박지 한 장과 못이 놓여 있습니다.
+멀리 있는 누군가에게, 글이 아닌 그림으로 마음을 전할 차례입니다.`,
+        question: `당신이 멀리 떨어진 누군가에게 그림으로 한 가지를 보낸다면, 무엇을 그리고 싶나요? 한 줄로 남겨주세요.`,
+        answer: null, hint: null, success: null },
+    ],
+  },
+};
+
+
+// ==================== 상태 ====================
+let currentRoomIdx = 0;
+let escapeRoomData = null;
+
+// ==================== 유틸 ====================
+const $ = (sel, parent = document) => parent.querySelector(sel);
+const $$ = (sel, parent = document) => parent.querySelectorAll(sel);
+
+function el(tag, props = {}, ...children) {
+  const e = document.createElement(tag);
+  Object.entries(props).forEach(([k, v]) => {
+    if (k === 'class') e.className = v;
+    else if (k === 'html') e.innerHTML = v;
+    else if (k.startsWith('on')) e.addEventListener(k.slice(2).toLowerCase(), v);
+    else e.setAttribute(k, v);
+  });
+  children.flat().forEach(c => {
+    if (typeof c === 'string') e.appendChild(document.createTextNode(c));
+    else if (c) e.appendChild(c);
+  });
+  return e;
+}
+
+function setTheme(artistKey) {
+  document.body.setAttribute('data-artist', artistKey || 'gogh');
+}
+
+function encodeData(obj) {
+  return LZString.compressToEncodedURIComponent(JSON.stringify(obj));
+}
+function decodeData(str) {
+  try { return JSON.parse(LZString.decompressFromEncodedURIComponent(str)); }
+  catch (e) { return null; }
+}
+
+function generateId() {
+  return 'er_' + Math.random().toString(36).slice(2, 10);
+}
+
+function getBaseUrl() {
+  return location.origin + location.pathname;
+}
+
+function saveDraft() {
+  if (escapeRoomData) {
+    localStorage.setItem('escape_draft', JSON.stringify(escapeRoomData));
+  }
+}
+function loadDraft() {
+  try {
+    const raw = localStorage.getItem('escape_draft');
+    return raw ? JSON.parse(raw) : null;
+  } catch { return null; }
+}
+
+// ==================== 라우터 ====================
+function route() {
+  const params = new URLSearchParams(location.search);
+  const mode = params.get('mode');
+  if (mode === 'play') return renderPlayer(params);
+  if (mode === 'build') return renderBuilder();
+  return renderLanding();
+}
+
+// ==================== 랜딩 (작가 선택) ====================
+function renderLanding() {
+  setTheme('gogh');
+  const draft = loadDraft();
+
+  const app = $('#app');
+  app.innerHTML = '';
+  app.appendChild(el('div', { class: 'container' },
+    el('div', { class: 'app-header' },
+      el('div', { class: 'brand' },
+        el('h1', {}, '🗺️ 작가 방탈출 제작 · 체험 도구'),
+        el('div', { class: 'sub' }, '모둠이 만들고, 다른 모둠이 체험하는 방탈출 도구'),
+      ),
+    ),
+    el('div', { class: 'landing' },
+      el('div', { class: 'hero' }, '어떤 작가의 방탈출을 만들까요?'),
+      el('div', { class: 'hero-sub' }, '작가를 고르면 색·폰트가 자동 적용돼요. 내용은 모둠이 채웁니다.'),
+      el('div', { class: 'artist-grid' },
+        ...SELECTABLE_ARTISTS.map(key => {
+          const p = ARTIST_PRESETS[key];
+          return el('div', { class: 'artist-pick', 'data-a': key, onclick: () => startBuild(key) },
+            el('div', { class: 'emoji' }, p.emoji),
+            el('div', { class: 'name' }, p.name),
+            el('div', { class: 'years' }, p.years),
+          );
+        })
+      ),
+      draft ? el('div', { class: 'card', style: 'max-width:520px; margin:0 auto 14px; text-align:center;' },
+        el('div', {}, '💾 저장된 작업이 있어요'),
+        el('div', { style: 'font-size:13px; color:var(--muted); margin:6px 0;' },
+          `작가: ${ARTIST_PRESETS[draft.artist]?.name || draft.artist} · 제목: ${draft.title || '(제목 없음)'}`
+        ),
+        el('div', { style: 'display:flex; gap:8px; justify-content:center;' },
+          el('button', { onclick: () => { escapeRoomData = draft; setTheme(draft.artist); renderBuilder(); } }, '이어서 작업하기'),
+          el('button', { class: 'ghost small', onclick: () => {
+            if (confirm('저장된 작업을 삭제할까요?')) { localStorage.removeItem('escape_draft'); renderLanding(); }
+          } }, '삭제'),
+        )
+      ) : null,
+
+      // 작가별 샘플 불러오기
+      el('div', { class: 'card', style: 'max-width:640px; margin:0 auto; text-align:center; background:linear-gradient(135deg,#fffbe8 0%,#fff5d6 100%); border:2px dashed #e8a838;' },
+        el('div', { style: 'font-family:Gaegu,sans-serif; font-size:22px; color:#a07a10; margin-bottom:4px;' }, '🎨 완성 예시 불러오기'),
+        el('div', { style: 'font-size:13px; color:#8a6a1a; margin-bottom:14px; line-height:1.6;' },
+          '작가별 완성 샘플을 불러와서 바로 체험하거나, 구조를 학습한 뒤 내 작가로 다시 만들 수 있어요.'
+        ),
+        el('div', { style: 'display:flex; flex-wrap:wrap; gap:8px; justify-content:center;' },
+          ...Object.entries(SAMPLES).map(([key, s]) => {
+            const p = ARTIST_PRESETS[key];
+            return el('button', {
+              class: 'small',
+              style: `background:${p.mainColor};`,
+              onclick: () => loadSample(key, draft),
+            }, `${p.emoji} ${p.name.split(' ').pop()} 예시`);
+          })
+        ),
+      ),
+    ),
+    renderFooter(),
+  ));
+}
+
+function loadSample(artistKey, draft) {
+  const sample = SAMPLES[artistKey];
+  if (!sample) return;
+  if (draft && !confirm(`저장된 작업이 있어요. ${ARTIST_PRESETS[artistKey].name} 예시로 덮어쓸까요?`)) return;
+  escapeRoomData = {
+    id: generateId(),
+    artist: sample.artist,
+    title: sample.title,
+    overallStory: sample.overallStory,
+    rooms: sample.rooms.map(r => ({ ...r, image: r.image || '' })),
+  };
+  setTheme(sample.artist);
+  saveDraft();
+  renderBuilder();
+}
+
+function startBuild(artistKey) {
+  escapeRoomData = {
+    id: generateId(),
+    artist: artistKey,
+    title: '',
+    overallStory: '',
+    rooms: ROOM_CONFIG.map(r => ({
+      idx: r.idx,
+      name: r.tag.replace(/^[^\s]+\s/, ''),
+      story: '',
+      image: '',
+      question: r.hasQ ? '' : null,
+      answer: r.hasQ ? '' : null,
+      hint: r.hasQ ? '' : null,
+      success: r.hasQ ? '' : null,
+    })),
+  };
+  setTheme(artistKey);
+  saveDraft();
+  renderBuilder();
+}
+
+// ==================== 빌더 ====================
+function renderBuilder() {
+  if (!escapeRoomData) {
+    const draft = loadDraft();
+    if (draft) { escapeRoomData = draft; setTheme(draft.artist); }
+    else return renderLanding();
+  }
+
+  const artist = ARTIST_PRESETS[escapeRoomData.artist];
+  const app = $('#app');
+  app.innerHTML = '';
+
+  app.appendChild(el('div', { class: 'container' },
+    el('div', { class: 'app-header' },
+      el('div', { class: 'brand' },
+        el('h1', {}, `${artist.emoji} ${artist.name} 방탈출 만들기`),
+        el('div', { class: 'sub' }, `${escapeRoomData.title || '(제목 없음)'} · ID: ${escapeRoomData.id}`),
+      ),
+      el('div', { class: 'mode-switch' },
+        el('button', { class: 'ghost small', onclick: () => {
+          if (confirm('작업을 저장하고 처음으로 돌아갈까요?')) renderLanding();
+        } }, '처음으로'),
+        el('button', { class: 'small', onclick: renderQRView }, '✅ 완성 → QR 생성'),
+      ),
+    ),
+
+    el('div', { class: 'help-strip', html: '💡 6개 방을 모두 채우면 오른쪽 위 <b>"QR 생성"</b> 버튼으로 넘어가세요. 작업은 자동 저장됩니다.' }),
+
+    el('div', { class: 'builder-layout' },
+      // 사이드 네비
+      el('div', { class: 'room-nav' },
+        el('h3', {}, '📝 전체 설정'),
+        el('button', {
+          class: `room-btn ${currentRoomIdx === -1 ? 'active' : ''} ${escapeRoomData.title && escapeRoomData.overallStory ? 'done' : ''}`,
+          onclick: () => { currentRoomIdx = -1; renderBuilder(); },
+        }, '🎬 제목 · 전체 스토리'),
+        el('h3', { style: 'margin-top:16px;' }, '🗺️ 방 구성'),
+        ...ROOM_CONFIG.map(r => {
+          const room = escapeRoomData.rooms[r.idx];
+          const done = room.story && (!r.hasQ || (room.question && room.answer));
+          return el('button', {
+            class: `room-btn ${currentRoomIdx === r.idx ? 'active' : ''} ${done ? 'done' : ''}`,
+            onclick: () => { currentRoomIdx = r.idx; renderBuilder(); },
+          }, r.tag);
+        }),
+      ),
+      // 메인 폼
+      el('div', { class: 'card room-form' }, ...renderCurrentForm()),
+    ),
+
+    renderFooter(),
+  ));
+}
+
+function renderCurrentForm() {
+  if (currentRoomIdx === -1) return renderMetaForm();
+  return renderRoomForm(currentRoomIdx);
+}
+
+function renderMetaForm() {
+  return [
+    el('div', { class: 'room-header' },
+      el('h2', {}, '🎬 제목과 전체 스토리'),
+      el('div', { class: 'role' }, '방탈출 전체를 감싸는 틀'),
+    ),
+    el('div', { class: 'field' },
+      el('label', {}, '방탈출 제목'),
+      el('input', {
+        type: 'text', placeholder: '예) 고흐의 노란 방',
+        value: escapeRoomData.title || '',
+        oninput: (e) => { escapeRoomData.title = e.target.value; saveDraft(); },
+      }),
+    ),
+    el('div', { class: 'field' },
+      el('label', {}, '전체 스토리 프레임 (플레이어의 역할·상황)'),
+      el('textarea', {
+        placeholder: '예) 플레이어 = 동생 테오. 형이 마지막으로 머물렀던 방에 들어가 형이 정말 하고 싶었던 이야기를 찾아낸다.',
+        oninput: (e) => { escapeRoomData.overallStory = e.target.value; saveDraft(); },
+      }, escapeRoomData.overallStory || ''),
+      el('div', { class: 'help' }, '번역표의 "삶 → 이야기" (1개) 내용을 옮겨 적으세요.'),
+    ),
+    el('div', { class: 'builder-actions' },
+      el('button', { onclick: () => { currentRoomIdx = 0; renderBuilder(); } }, '다음: 시작방 →'),
+    ),
+  ];
+}
+
+function renderRoomForm(idx) {
+  const config = ROOM_CONFIG[idx];
+  const room = escapeRoomData.rooms[idx];
+  const artist = ARTIST_PRESETS[escapeRoomData.artist];
+
+  const onInput = (field) => (e) => {
+    room[field] = e.target.value;
+    saveDraft();
+    // re-render nav dots
+    $$('.room-btn').forEach(b => {});
+  };
+
+  const children = [
+    el('div', { class: 'room-header' },
+      el('h2', {}, `${config.tag}`),
+      el('div', { class: 'role' }, config.role),
+    ),
+  ];
+
+  // 스토리/설명
+  children.push(el('div', { class: 'field' },
+    el('label', {}, config.idx === 0 ? '오프닝 스토리 + 방 설명' : `방 설명 · 단서 · 분위기`),
+    el('textarea', {
+      placeholder: config.idx === 0
+        ? '예) 당신은 테오입니다. 오늘, 형이 마지막으로 머물렀던 노란 방 앞에 섰습니다. 잠긴 문. 형이 남긴 편지 한 통. 이 방 어딘가에 형이 정말로 하고 싶었던 이야기가...'
+        : `예) ${idx === 5 ? '형의 마지막 편지가 당신 앞에 놓입니다. 빈 캔버스에 색 하나를 고르세요...' : '방을 둘러보세요. 빈 의자 하나만 놓인 노란 방. 식탁 위 조각난 편지들이 흩어져 있습니다.'}`,
+      oninput: onInput('story'),
+    }, room.story || ''),
+    el('div', { class: 'help' },
+      config.idx === 0 ? '체험자가 QR을 스캔하면 가장 먼저 이 문장을 만나요' :
+      config.isFinal ? '체험자의 감정이 자기 연결로 흐르게 해주세요' :
+      '공간 분위기, 단서 설명, 스토리 전환 문구 등'
+    ),
+  ));
+
+  // 단서 이미지 (선택)
+  children.push(el('div', { class: 'field' },
+    el('label', {}, '📷 단서 이미지 (선택)'),
+    renderImageField(room),
+    el('div', { class: 'help' }, '미니어처 안에 작게 들어간 단서를 사진으로 크게 보여줄 수 있어요. 예: 고흐의 편지 모형 → 편지 내용 사진'),
+  ));
+
+  // 질문 (있는 경우만)
+  if (config.hasQ) {
+    children.push(
+      el('div', { class: 'field' },
+        el('label', {}, '질문 / 수수께끼'),
+        el('textarea', {
+          placeholder: '예) 조각난 편지 4조각을 이어 붙이면, 밑줄 단어 4개가 나타납니다. 그 단어들을 이으면?',
+          oninput: onInput('question'),
+        }, room.question || ''),
+      ),
+      el('div', { class: 'field' },
+        el('label', {}, '정답 (체험자가 맞혀야 하는 값)'),
+        el('input', {
+          type: 'text',
+          placeholder: '예) 너를사랑한다',
+          value: room.answer || '',
+          oninput: onInput('answer'),
+        }),
+        el('div', { class: 'help' }, '공백은 무시하고 비교해요. 예: "너를 사랑한다" 입력 = "너를사랑한다"도 정답 처리'),
+      ),
+      el('div', { class: 'field' },
+        el('label', {}, '힌트 (선택)'),
+        el('textarea', {
+          placeholder: '예) 편지 조각의 밑줄에 주목하세요',
+          oninput: onInput('hint'),
+        }, room.hint || ''),
+      ),
+      el('div', { class: 'field' },
+        el('label', {}, '정답 맞힌 후 보여줄 문구 (선택)'),
+        el('textarea', {
+          placeholder: '예) 문이 열립니다. 다음 방으로 — 별이 빛나는 밤이 기다립니다.',
+          oninput: onInput('success'),
+        }, room.success || ''),
+      ),
+    );
+  } else if (config.isFinal) {
+    children.push(
+      el('div', { class: 'field' },
+        el('label', {}, '자기 연결 질문 (체험자가 답을 남길 질문)'),
+        el('textarea', {
+          placeholder: '예) 당신에게 별은 무엇인가요? 한 줄로 남겨주세요.',
+          oninput: onInput('question'),
+        }, room.question || ''),
+        el('div', { class: 'help' }, '이 질문에 남긴 답은 공유판에 모여요 (익명)'),
+      ),
+    );
+  }
+
+  // 네비
+  const prevIdx = idx - 1;
+  const nextIdx = idx + 1;
+  children.push(el('div', { class: 'builder-actions' },
+    prevIdx >= 0
+      ? el('button', { class: 'ghost small', onclick: () => { currentRoomIdx = prevIdx; renderBuilder(); } }, '← 이전 방')
+      : el('button', { class: 'ghost small', onclick: () => { currentRoomIdx = -1; renderBuilder(); } }, '← 전체 설정'),
+    nextIdx < ROOM_CONFIG.length
+      ? el('button', { onclick: () => { currentRoomIdx = nextIdx; renderBuilder(); } }, '다음 방 →')
+      : el('button', { class: 'accent', onclick: renderQRView }, '✅ QR 생성 화면으로'),
+    el('span', { class: 'saved-notice' }, '• 자동 저장됨'),
+  ));
+
+  return children;
+}
+
+// ==================== 이미지 업로드 필드 ====================
+function renderImageField(room) {
+  const wrap = el('div', { class: 'image-field' });
+
+  const renderInner = () => {
+    wrap.innerHTML = '';
+    const fileInputId = `file-${room.idx}-${Math.random().toString(36).slice(2,6)}`;
+
+    const status = el('span', { class: 'status' }, room.image ? '✅ 사진 첨부됨' : '아직 첨부 안 됨');
+    if (room.image) status.classList.add('ok');
+
+    const fileInput = el('input', {
+      type: 'file', id: fileInputId, accept: 'image/*',
+      onchange: async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        if (file.size > 5 * 1024 * 1024) {
+          status.className = 'status error';
+          status.textContent = '⚠️ 5MB 이하만 가능';
+          return;
+        }
+        status.className = 'status uploading';
+        status.textContent = '⏳ 업로드 중...';
+        try {
+          const url = await uploadImage(file);
+          room.image = url;
+          saveDraft();
+          renderInner();
+        } catch (err) {
+          status.className = 'status error';
+          status.textContent = '❌ 업로드 실패: ' + err.message;
+        }
+      },
+    });
+
+    const label = el('label', { for: fileInputId, class: 'file-btn' },
+      room.image ? '📷 다른 사진으로 바꾸기' : '📷 사진 첨부'
+    );
+
+    wrap.appendChild(el('div', { class: 'upload-row' }, label, fileInput, status));
+
+    if (room.image) {
+      wrap.appendChild(el('div', { class: 'preview' },
+        el('img', { src: room.image, alt: '단서 이미지' }),
+        el('button', {
+          class: 'remove', title: '제거',
+          onclick: () => { room.image = ''; saveDraft(); renderInner(); },
+        }, '×'),
+      ));
+    }
+
+    // URL 직접 입력도 가능
+    wrap.appendChild(el('input', {
+      type: 'text', class: 'url-input',
+      placeholder: '또는 이미지 URL 직접 붙여넣기 (선택)',
+      value: room.image || '',
+      oninput: (e) => { room.image = e.target.value.trim(); saveDraft(); },
+      onblur: () => renderInner(),
+    }));
+  };
+
+  renderInner();
+  return wrap;
+}
+
+async function uploadImage(file) {
+  const formData = new FormData();
+  formData.append('file', file);
+  const res = await fetch(IMAGE_UPLOAD_URL + '/upload', {
+    method: 'POST', body: formData,
+  });
+  if (!res.ok) throw new Error('서버 오류 (' + res.status + ')');
+  const data = await res.json();
+  if (!data.url) throw new Error('URL을 받지 못했어요');
+  return data.url;
+}
+
+// ==================== QR 화면 ====================
+async function renderQRView() {
+  if (!validateBeforeQR()) return;
+
+  const app = $('#app');
+  app.innerHTML = '';
+  const artist = ARTIST_PRESETS[escapeRoomData.artist];
+
+  // 로딩 화면 먼저
+  app.appendChild(el('div', { class: 'container' },
+    el('div', { class: 'card', style: 'text-align:center; padding:40px;' },
+      el('div', { style: 'font-size:32px; margin-bottom:12px;' }, '⏳'),
+      el('div', { style: 'font-family:var(--font-display); font-size:20px; color:var(--main); margin-bottom:6px;' }, 'QR 만들고 있어요...'),
+      el('div', { style: 'font-size:13px; color:var(--muted);' }, '데이터를 저장하고 깔끔한 QR을 준비 중이에요.'),
+    ),
+  ));
+
+  // 워커에 저장
+  let escapeId;
+  try {
+    escapeId = await saveEscapeToWorker();
+  } catch (err) {
+    app.innerHTML = '';
+    app.appendChild(el('div', { class: 'container' },
+      el('div', { class: 'card', style: 'text-align:center; padding:30px;' },
+        el('h2', {}, '⚠️ 저장 실패'),
+        el('p', { style: 'margin:14px 0;' }, err.message),
+        el('p', { style: 'font-size:13px; color:var(--muted);' }, '인터넷 연결을 확인하거나 워커 URL이 올바른지 확인해주세요.'),
+        el('button', { onclick: renderBuilder, style: 'margin-top:14px;' }, '← 돌아가기'),
+      ),
+    ));
+    return;
+  }
+
+  app.innerHTML = '';
+  app.appendChild(el('div', { class: 'container' },
+    el('div', { class: 'app-header no-print' },
+      el('div', { class: 'brand' },
+        el('h1', {}, `📱 QR 코드 — ${escapeRoomData.title || '(제목 없음)'}`),
+        el('div', { class: 'sub' }, `${artist.emoji} ${artist.name} · 총 6개 방 · ID: ${escapeId}`),
+      ),
+      el('div', { class: 'mode-switch' },
+        el('button', { class: 'ghost small', onclick: () => { renderBuilder(); } }, '← 수정하기'),
+        el('button', { class: 'small', onclick: () => window.print() }, '🖨️ 인쇄'),
+      ),
+    ),
+    el('div', { class: 'help-strip no-print' },
+      '💡 각 QR을 출력해서 해당 방 위치에 붙이세요. 체험자는 QR을 스캔하면 해당 방 화면으로 바로 이동합니다.'
+    ),
+    el('div', { class: 'qr-grid' },
+      ...ROOM_CONFIG.map(rc => {
+        const room = escapeRoomData.rooms[rc.idx];
+        const url = buildRoomUrl(escapeId, rc.idx);
+        const id = `qr-${rc.idx}`;
+        const item = el('div', { class: 'qr-item' },
+          el('div', { class: 'title' }, rc.tag),
+          el('div', { class: 'sub' }, room.name || rc.tag.replace(/^[^\s]+\s/, '')),
+          el('div', { class: 'qr-box', id }),
+          el('div', { class: 'no-print', style: 'display:flex; gap:6px; margin-top:8px; justify-content:center;' },
+            el('button', { class: 'small', onclick: (e) => copyUrl(url, e.target) }, '🔗 URL 복사'),
+            el('button', { class: 'ghost small', onclick: () => window.open(url, '_blank') }, '👁️ 체험'),
+          ),
+          el('div', { class: 'url-copy' }, url.length > 60 ? url.slice(0, 60) + '…' : url),
+        );
+        setTimeout(() => {
+          const box = document.getElementById(id);
+          if (!box || !window.QRCodeStyling) return;
+          try {
+            const qr = new QRCodeStyling({
+              width: 180, height: 180,
+              type: 'svg',
+              data: url,
+              margin: 4,
+              qrOptions: { errorCorrectionLevel: 'M' },
+              dotsOptions: { color: '#2a2a2a', type: 'dots' },
+              cornersSquareOptions: { color: '#2a2a2a', type: 'extra-rounded' },
+              cornersDotOptions: { color: '#2a2a2a', type: 'dot' },
+              backgroundOptions: { color: '#ffffff' },
+            });
+            qr.append(box);
+          } catch (err) {
+            box.innerHTML = `<div style="padding:20px; color:#c04040; font-size:11px;">⚠️ QR 생성 실패</div>`;
+          }
+        }, 30);
+        return item;
+      }),
+    ),
+    renderFooter(),
+  ));
+}
+
+function validateBeforeQR() {
+  if (!escapeRoomData.title) {
+    alert('"제목"을 입력해주세요.');
+    currentRoomIdx = -1; renderBuilder(); return false;
+  }
+  if (!escapeRoomData.overallStory) {
+    alert('"전체 스토리"를 입력해주세요.');
+    currentRoomIdx = -1; renderBuilder(); return false;
+  }
+  for (const rc of ROOM_CONFIG) {
+    const r = escapeRoomData.rooms[rc.idx];
+    if (!r.story) {
+      alert(`${rc.tag}의 "방 설명"을 입력해주세요.`);
+      currentRoomIdx = rc.idx; renderBuilder(); return false;
+    }
+    if (rc.hasQ && (!r.question || !r.answer)) {
+      alert(`${rc.tag}의 "질문"과 "정답"을 입력해주세요.`);
+      currentRoomIdx = rc.idx; renderBuilder(); return false;
+    }
+    if (rc.isFinal && !r.question) {
+      alert(`${rc.tag}의 "자기 연결 질문"을 입력해주세요.`);
+      currentRoomIdx = rc.idx; renderBuilder(); return false;
+    }
+  }
+  return true;
+}
+
+function copyUrl(url, btn) {
+  const originalText = btn.textContent;
+  const doneFeedback = () => {
+    btn.textContent = '✅ 복사됨!';
+    setTimeout(() => { btn.textContent = originalText; }, 1500);
+  };
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(url).then(doneFeedback).catch(() => fallbackCopy(url, doneFeedback));
+  } else {
+    fallbackCopy(url, doneFeedback);
+  }
+}
+function fallbackCopy(text, cb) {
+  const ta = document.createElement('textarea');
+  ta.value = text;
+  ta.style.position = 'fixed';
+  ta.style.top = '-1000px';
+  document.body.appendChild(ta);
+  ta.select();
+  try { document.execCommand('copy'); cb(); } catch (e) { alert('복사 실패 — URL을 직접 선택해 복사하세요.'); }
+  document.body.removeChild(ta);
+}
+
+// 워커에 escape room 데이터 저장 → 짧은 ID 반환
+async function saveEscapeToWorker() {
+  const res = await fetch(IMAGE_UPLOAD_URL + '/escape', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(escapeRoomData),
+  });
+  if (!res.ok) throw new Error('저장 실패 (' + res.status + ')');
+  const data = await res.json();
+  if (!data.id) throw new Error('ID를 받지 못했어요');
+  return data.id;
+}
+
+function buildRoomUrl(escapeId, idx) {
+  return getBaseUrl() + '?mode=play&eid=' + escapeId + '&n=' + idx;
+}
+
+// ==================== 체험자 플레이어 ====================
+async function renderPlayer(params) {
+  const eid = params.get('eid');
+  const n = parseInt(params.get('n') || '0', 10);
+
+  if (!eid) {
+    $('#app').innerHTML = '<div class="container"><div class="card"><h2>⚠️ 잘못된 QR이에요</h2><p>다른 QR을 스캔해보세요.</p></div></div>';
+    return;
+  }
+
+  // 로딩 표시
+  $('#app').innerHTML = '<div class="container"><div class="card" style="text-align:center; padding:40px;"><div style="font-size:32px;">⏳</div><div style="margin-top:10px; color:#888;">방을 불러오는 중...</div></div></div>';
+
+  // 워커에서 데이터 가져오기
+  let escapeData;
+  try {
+    const res = await fetch(IMAGE_UPLOAD_URL + '/escape/' + eid);
+    if (!res.ok) throw new Error('서버에서 방 데이터를 못 찾았어요');
+    escapeData = await res.json();
+  } catch (err) {
+    $('#app').innerHTML = `<div class="container"><div class="card"><h2>⚠️ 방을 불러올 수 없어요</h2><p>${err.message}</p><p style="font-size:13px; color:#888; margin-top:8px;">인터넷 연결을 확인해주세요.</p></div></div>`;
+    return;
+  }
+
+  const room = escapeData.rooms[n];
+  if (!room) {
+    $('#app').innerHTML = '<div class="container"><div class="card"><h2>⚠️ 방을 찾을 수 없어요</h2></div></div>';
+    return;
+  }
+
+  // 기존 형식과 호환되는 data 객체 만들기
+  const data = {
+    id: escapeData.id,
+    a: escapeData.artist,
+    t: escapeData.title,
+    n: n,
+    os: n === 0 ? escapeData.overallStory : '',
+    r: {
+      n: room.name || '',
+      s: room.story || '',
+      img: room.image || '',
+      q: room.question || '',
+      ans: room.answer || '',
+      h: room.hint || '',
+      sc: room.success || '',
+    },
+  };
+
+  setTheme(data.a);
+  const config = ROOM_CONFIG[data.n];
+  const isFinal = config.isFinal;
+
+  const app = $('#app');
+  app.innerHTML = '';
+
+  const children = [
+    data.t ? el('div', { class: 'player-escape-title' }, `🎨 ${data.t}`) : null,
+    el('div', { class: 'player-room-tag' }, config.tag),
+    el('h1', { class: 'player-room-title' }, data.r.n || config.tag.replace(/^[^\s]+\s/, '')),
+  ];
+
+  if (data.n === 0 && data.os) {
+    children.push(el('div', { class: 'player-overall-story' }, data.os));
+  }
+  if (data.r.s) {
+    children.push(el('div', { class: 'player-story' }, data.r.s));
+  }
+
+  if (data.r.img) {
+    children.push(el('div', { class: 'clue-image-wrap' },
+      el('img', {
+        src: data.r.img, alt: '단서 이미지',
+        onclick: () => openLightbox(data.r.img),
+      }),
+      el('div', { class: 'caption' }, '🔍 사진을 누르면 크게 볼 수 있어요'),
+    ));
+  }
+
+  if (config.hasQ) {
+    children.push(renderQuestionBlock(data));
+  } else if (isFinal) {
+    children.push(renderFinalBlock(data));
+  } else {
+    children.push(el('div', { class: 'card', style: 'text-align:center;' },
+      el('p', {}, '준비가 되었다면, 첫 번째 방의 QR을 찾아 스캔하세요.'),
+      el('p', { style: 'font-size:13px; color:var(--muted); margin-top:8px;' }, '🗺️ 탐험 시작!'),
+    ));
+  }
+
+  app.appendChild(el('div', { class: 'container player-page' },
+    ...children,
+    renderFooter(),
+  ));
+}
+
+function renderQuestionBlock(data) {
+  const wrap = el('div', { class: 'player-question' },
+    el('h3', {}, '❓ 질문'),
+    el('div', { class: 'q-text' }, data.r.q),
+    el('div', { class: 'answer-input-wrap' },
+      el('input', { type: 'text', id: 'answer-input', placeholder: '답을 입력하세요', onkeydown: (e) => { if (e.key === 'Enter') checkAnswer(data); } }),
+      el('button', { onclick: () => checkAnswer(data) }, '확인'),
+    ),
+    el('div', { class: 'feedback', id: 'feedback' }),
+    data.r.h ? el('button', { class: 'hint-btn', onclick: () => $('#hint-box').classList.add('show') }, '💡 힌트 보기') : null,
+    data.r.h ? el('div', { class: 'hint-box', id: 'hint-box' }, data.r.h) : null,
+  );
+  return wrap;
+}
+
+function checkAnswer(data) {
+  const input = $('#answer-input');
+  const fb = $('#feedback');
+  const guess = input.value.replace(/\s+/g, '').toLowerCase();
+  const correct = (data.r.ans || '').replace(/\s+/g, '').toLowerCase();
+
+  if (!guess) {
+    fb.className = 'feedback wrong show';
+    fb.textContent = '답을 입력해주세요.';
+    return;
+  }
+
+  if (guess === correct) {
+    fb.className = 'feedback correct show';
+    fb.innerHTML = '✅ 정답입니다!' + (data.r.sc ? '\n\n' + escapeHtml(data.r.sc) : '');
+    fb.innerHTML = fb.innerHTML.replace(/\n/g, '<br>');
+    input.disabled = true;
+  } else {
+    fb.className = 'feedback wrong show';
+    fb.textContent = '❌ 다시 생각해보세요.';
+  }
+}
+
+function openLightbox(src) {
+  const box = el('div', { class: 'lightbox', onclick: () => box.remove() },
+    el('img', { src }),
+    el('div', { class: 'close-hint' }, '✕ 아무 곳이나 눌러서 닫기'),
+  );
+  document.body.appendChild(box);
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+// ==================== 마지막방 공유판 ====================
+function renderFinalBlock(data) {
+  const storageKey = `responses_${data.id}`;
+  const getAll = () => {
+    try { return JSON.parse(localStorage.getItem(storageKey) || '[]'); } catch { return []; }
+  };
+
+  const wrap = el('div', {},
+    el('div', { class: 'reflection-box' },
+      el('h3', {}, '🎭 당신의 답'),
+      el('div', { class: 'q-text', style: 'margin-bottom:12px;' }, data.r.q),
+      el('textarea', { id: 'reflection-input', placeholder: '한 줄로 남겨주세요...' }),
+      el('div', { style: 'margin-top:10px; display:flex; gap:8px; align-items:center;' },
+        el('button', { onclick: () => {
+          const text = $('#reflection-input').value.trim();
+          if (!text) { alert('답을 써주세요.'); return; }
+          const arr = getAll();
+          arr.push({ t: text, at: Date.now() });
+          localStorage.setItem(storageKey, JSON.stringify(arr));
+          $('#reflection-input').value = '';
+          renderShareBoard(data.id);
+        } }, '남기기'),
+        el('span', { style: 'font-size:12px; color:var(--muted);' }, '익명으로 공유판에 올라가요'),
+      ),
+    ),
+    el('div', { id: 'share-board-wrap' }),
+  );
+
+  setTimeout(() => renderShareBoard(data.id), 30);
+  return wrap;
+}
+
+function renderShareBoard(escapeId) {
+  const storageKey = `responses_${escapeId}`;
+  let arr = [];
+  try { arr = JSON.parse(localStorage.getItem(storageKey) || '[]'); } catch {}
+
+  const wrap = $('#share-board-wrap');
+  if (!wrap) return;
+  wrap.innerHTML = '';
+
+  const list = arr.slice(-20).reverse();
+  wrap.appendChild(el('div', { class: 'share-board' },
+    el('h3', {}, `💫 함께 남긴 답들 (${arr.length})`),
+    list.length === 0
+      ? el('div', { class: 'share-empty' }, '아직 남긴 답이 없어요. 첫 번째 답이 되어주세요.')
+      : el('div', {}, ...list.map(r => el('div', { class: 'share-item' },
+          el('div', {}, r.t),
+          el('div', { class: 'who' }, formatTime(r.at)),
+        ))),
+  ));
+}
+
+function formatTime(ts) {
+  const d = new Date(ts);
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  const hh = String(d.getHours()).padStart(2, '0');
+  const mi = String(d.getMinutes()).padStart(2, '0');
+  return `${mm}-${dd} ${hh}:${mi}`;
+}
+
+// ==================== 푸터 ====================
+function renderFooter() {
+  return el('footer', {}, '🌱 우리가 만드는 작가 방탈출 · 제작·체험 도구');
+}
+
+// ==================== 시작 ====================
+route();
+</script>
+</body>
+</html>

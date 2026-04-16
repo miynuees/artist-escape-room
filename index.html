@@ -679,12 +679,12 @@ const ARTIST_PRESETS = {
 const SELECTABLE_ARTISTS = ['gogh', 'frida', 'picasso', 'paik', 'warhol'];
 
 const ROOM_CONFIG = [
-  { idx: 0, tag: '🌀 시작방', role: '이야기 도입 (연출①)', hasQ: false, storyLabel: '오프닝 스토리 (플레이어를 세계로 끌어들이는 첫 마디)', storyHelp: '예: "당신은 테오입니다. 형의 노란 방 앞에 섰습니다..."' },
-  { idx: 1, tag: '🔍 1방', role: '감정 발견 (연출② + Q1)', hasQ: true },
-  { idx: 2, tag: '❓ 2방', role: '의미 해독 (연출③ + Q2)', hasQ: true },
-  { idx: 3, tag: '💫 3방', role: '작가 심화 (연출④ + Q3)', hasQ: true },
-  { idx: 4, tag: '⚡ 4방', role: '핵심 클라이맥스 (연출⑤ + Q4)', hasQ: true },
-  { idx: 5, tag: '🎭 마지막방', role: '자기 연결 (Q5) · 공유판 활성화', hasQ: false, isFinal: true },
+  { idx: 0, tag: '🌀 시작방', role: '이야기 도입 (스토리)', hasQ: false, storyLabel: '오프닝 스토리 (플레이어를 세계로 끌어들이는 첫 마디)', storyHelp: '예: "당신은 테오입니다. 형의 노란 방 앞에 섰습니다..."' },
+  { idx: 1, tag: '🔍 1방', role: '감정 발견 (질문①)', hasQ: true },
+  { idx: 2, tag: '❓ 2방', role: '의미 해독 (질문②)', hasQ: true },
+  { idx: 3, tag: '💫 3방', role: '작가 심화 (질문③)', hasQ: true },
+  { idx: 4, tag: '⚡ 4방', role: '핵심 클라이맥스 (질문④)', hasQ: true },
+  { idx: 5, tag: '🎭 마지막방', role: '자기 연결 (질문⑤) · 공유판 활성화', hasQ: false, isFinal: true },
 ];
 
 // 🎨 작가별 완성 샘플 (학생들이 구조를 참고할 수 있는 예시 — 일부러 수업 대상 5명과는 다른 작가들로 구성)
@@ -990,6 +990,7 @@ function loadSample(artistKey, draft) {
     artist: sample.artist,
     title: sample.title,
     rooms: sample.rooms.map(r => ({ ...r, image: r.image || '' })),
+    isSample: true,
   };
   currentRoomIdx = -1;
   setTheme(sample.artist);
@@ -1034,18 +1035,22 @@ function renderBuilder() {
   app.appendChild(el('div', { class: 'container' },
     el('div', { class: 'app-header' },
       el('div', { class: 'brand' },
-        el('h1', {}, `${artist.emoji} ${artist.name} 방탈출 만들기`),
+        el('h1', {}, `${artist.emoji} ${artist.name}${escapeRoomData.isSample ? ' 예시 (참고용)' : ' 방탈출 만들기'}`),
         el('div', { class: 'sub' }, `${escapeRoomData.title || '(제목 없음)'} · ID: ${escapeRoomData.id}`),
       ),
       el('div', { class: 'mode-switch' },
         el('button', { class: 'ghost small', onclick: () => {
-          if (confirm('작업을 저장하고 처음으로 돌아갈까요?')) renderLanding();
+          if (confirm('처음으로 돌아갈까요?')) renderLanding();
         } }, '처음으로'),
-        el('button', { class: 'small', onclick: renderQRView }, '✅ 완성 → QR 생성'),
+        escapeRoomData.isSample
+          ? null
+          : el('button', { class: 'small', onclick: renderQRView }, '✅ 완성 → QR 생성'),
       ),
     ),
 
-    el('div', { class: 'help-strip', html: '💡 6개 방을 모두 채우면 오른쪽 위 <b>"QR 생성"</b> 버튼으로 넘어가세요. 작업은 자동 저장됩니다.' }),
+    escapeRoomData.isSample
+      ? el('div', { class: 'help-strip', style: 'background:#fef5d0; border-left-color:#e8a838; color:#8a6a1a;', html: '🎨 <b>이 방탈출은 참고용 예시입니다.</b> 구조와 작성 흐름을 살펴보고, 우리 작가로 새로 만들어 보세요!' })
+      : el('div', { class: 'help-strip', html: '💡 6개 방을 모두 채우면 오른쪽 위 <b>"QR 생성"</b> 버튼으로 넘어가세요. 작업은 자동 저장됩니다.' }),
 
     el('div', { class: 'builder-layout' },
       // 사이드 네비
@@ -1199,7 +1204,9 @@ function renderRoomForm(idx) {
       : el('button', { class: 'ghost small', onclick: () => { currentRoomIdx = -1; renderBuilder(); } }, '← 전체 설정'),
     nextIdx < ROOM_CONFIG.length
       ? el('button', { onclick: () => { currentRoomIdx = nextIdx; renderBuilder(); } }, '다음 방 →')
-      : el('button', { class: 'accent', onclick: renderQRView }, '✅ QR 생성 화면으로'),
+      : (escapeRoomData.isSample
+          ? el('button', { class: 'ghost', onclick: () => renderLanding() }, '← 처음으로')
+          : el('button', { class: 'accent', onclick: renderQRView }, '✅ QR 생성 화면으로')),
     el('span', { class: 'saved-notice' }, '• 자동 저장됨'),
   ));
 
@@ -1285,6 +1292,10 @@ async function uploadImage(file) {
 
 // ==================== QR 화면 ====================
 async function renderQRView() {
+  if (escapeRoomData && escapeRoomData.isSample) {
+    alert('🎨 예시는 참고용입니다. 우리 작가로 새로 만들어 QR을 생성해주세요!');
+    return;
+  }
   if (!validateBeforeQR()) return;
 
   const app = $('#app');

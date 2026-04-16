@@ -991,6 +991,7 @@ function loadSample(artistKey, draft) {
     title: sample.title,
     rooms: sample.rooms.map(r => ({ ...r, image: r.image || '' })),
   };
+  currentRoomIdx = -1;
   setTheme(sample.artist);
   saveDraft();
   renderBuilder();
@@ -1012,6 +1013,7 @@ function startBuild(artistKey) {
       success: r.hasQ ? '' : null,
     })),
   };
+  currentRoomIdx = -1;
   setTheme(artistKey);
   saveDraft();
   renderBuilder();

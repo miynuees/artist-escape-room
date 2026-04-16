@@ -544,7 +544,7 @@ label {
   font-size: 13px;
 }
 
-/* ========== 단서 이미지 ========== */
+/* ========== 연출 이미지 ========== */
 .image-field {
   background: #f7faf2;
   border: 1.5px dashed #c5dba8;
@@ -679,11 +679,11 @@ const ARTIST_PRESETS = {
 const SELECTABLE_ARTISTS = ['gogh', 'frida', 'picasso', 'paik', 'warhol'];
 
 const ROOM_CONFIG = [
-  { idx: 0, tag: '🌀 시작방', role: '이야기 도입 (단서①)', hasQ: false, storyLabel: '오프닝 스토리 (플레이어를 세계로 끌어들이는 첫 마디)', storyHelp: '예: "당신은 테오입니다. 형의 노란 방 앞에 섰습니다..."' },
-  { idx: 1, tag: '🔍 1방', role: '감정 발견 (단서② + Q1)', hasQ: true },
-  { idx: 2, tag: '❓ 2방', role: '의미 해독 (단서③ + Q2)', hasQ: true },
-  { idx: 3, tag: '💫 3방', role: '작가 심화 (단서④ + Q3)', hasQ: true },
-  { idx: 4, tag: '⚡ 4방', role: '핵심 클라이맥스 (단서⑤ + Q4)', hasQ: true },
+  { idx: 0, tag: '🌀 시작방', role: '이야기 도입 (연출①)', hasQ: false, storyLabel: '오프닝 스토리 (플레이어를 세계로 끌어들이는 첫 마디)', storyHelp: '예: "당신은 테오입니다. 형의 노란 방 앞에 섰습니다..."' },
+  { idx: 1, tag: '🔍 1방', role: '감정 발견 (연출② + Q1)', hasQ: true },
+  { idx: 2, tag: '❓ 2방', role: '의미 해독 (연출③ + Q2)', hasQ: true },
+  { idx: 3, tag: '💫 3방', role: '작가 심화 (연출④ + Q3)', hasQ: true },
+  { idx: 4, tag: '⚡ 4방', role: '핵심 클라이맥스 (연출⑤ + Q4)', hasQ: true },
   { idx: 5, tag: '🎭 마지막방', role: '자기 연결 (Q5) · 공유판 활성화', hasQ: false, isFinal: true },
 ];
 
@@ -1119,7 +1119,7 @@ function renderRoomForm(idx) {
 
   // 스토리/설명
   children.push(el('div', { class: 'field' },
-    el('label', {}, config.idx === 0 ? '도입 스토리 (플레이어의 역할 + 첫 방의 분위기)' : `방 설명 · 단서 · 분위기`),
+    el('label', {}, config.idx === 0 ? '도입 스토리 (플레이어의 역할 + 첫 방의 분위기)' : `방 설명 · 연출 · 분위기`),
     el('textarea', {
       placeholder: config.idx === 0
         ? '예) 당신은 테오입니다. 형이 마지막으로 머물렀던 노란 방 앞에 섰습니다. 잠긴 문 너머 형이 남긴 편지 한 통...\n\n— 방 안엔 텅 빈 의자와 식탁, 그 위에 놓인 유품 상자가 보입니다.'
@@ -1129,15 +1129,15 @@ function renderRoomForm(idx) {
     el('div', { class: 'help' },
       config.idx === 0 ? '체험자가 ①번 QR을 스캔하면 가장 먼저 이 문장을 만나요. 플레이어의 역할(누구인지) + 첫 방의 분위기를 같이 담아주세요.' :
       config.isFinal ? '체험자의 감정이 자기 연결로 흐르게 해주세요' :
-      '공간 분위기, 단서 설명, 스토리 전환 문구 등'
+      '공간 분위기, 연출 설명, 스토리 전환 문구 등'
     ),
   ));
 
-  // 단서 이미지 (선택)
+  // 연출 이미지 (선택)
   children.push(el('div', { class: 'field' },
-    el('label', {}, '📷 단서 이미지 (선택)'),
+    el('label', {}, '📷 연출 이미지 (선택)'),
     renderImageField(room),
-    el('div', { class: 'help' }, '미니어처 안에 작게 들어간 단서를 사진으로 크게 보여줄 수 있어요. 예: 고흐의 편지 모형 → 편지 내용 사진'),
+    el('div', { class: 'help' }, '미니어처 안에 작게 들어간 연출을 사진으로 크게 보여줄 수 있어요. 예: 고흐의 편지 모형 → 편지 내용 사진'),
   ));
 
   // 질문 (있는 경우만)
@@ -1247,7 +1247,7 @@ function renderImageField(room) {
 
     if (room.image) {
       wrap.appendChild(el('div', { class: 'preview' },
-        el('img', { src: room.image, alt: '단서 이미지' }),
+        el('img', { src: room.image, alt: '연출 이미지' }),
         el('button', {
           class: 'remove', title: '제거',
           onclick: () => { room.image = ''; saveDraft(); renderInner(); },
@@ -1509,7 +1509,7 @@ async function renderPlayer(params) {
   if (data.r.img) {
     children.push(el('div', { class: 'clue-image-wrap' },
       el('img', {
-        src: data.r.img, alt: '단서 이미지',
+        src: data.r.img, alt: '연출 이미지',
         onclick: () => openLightbox(data.r.img),
       }),
       el('div', { class: 'caption' }, '🔍 사진을 누르면 크게 볼 수 있어요'),
@@ -1647,7 +1647,7 @@ function formatTime(ts) {
 
 // ==================== 푸터 ====================
 function renderFooter() {
-  return el('footer', {}, '🌱 우리가 만드는 작가 방탈출 · 제작·체험 도구');
+  return el('footer', {}, '🌱 작가의 세계를 탐험하다: 미술 방탈출 프로젝트 · 제작·체험 도구');
 }
 
 // ==================== 시작 ====================

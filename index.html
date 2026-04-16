@@ -683,13 +683,14 @@ const SAMPLES = {
   monet: {
     artist: 'monet',
     title: '모네의 지베르니 정원',
-    overallStory: `당신은 모네의 친구이자 화가 지망생입니다.
-프랑스 지베르니의 그의 정원에 들어섭니다.
-연못엔 수련이 피었고, 같은 장면이 하루 종일 다른 얼굴을 보여줍니다.
-빛이 어떻게 세상을 바꾸는지, 함께 바라보세요.`,
     rooms: [
       { idx: 0, name: '시작방',
-        story: `새벽의 정원. 물안개가 피어오르고, 일본식 다리가 희미하게 보입니다.
+        story: `당신은 모네의 친구이자 화가 지망생입니다.
+프랑스 지베르니의 그의 정원에 들어섭니다.
+연못엔 수련이 피었고, 같은 장면이 하루 종일 다른 얼굴을 보여줍니다.
+빛이 어떻게 세상을 바꾸는지, 함께 바라보세요.
+
+— 새벽의 정원. 물안개가 피어오르고, 일본식 다리가 희미하게 보입니다.
 이젤 위 모네의 메모:
 "빛은 그림의 진짜 주인공이다."`,
         question: null, answer: null, hint: null, success: null },
@@ -736,12 +737,13 @@ const SAMPLES = {
   munch: {
     artist: 'munch',
     title: '뭉크의 절규하는 다리',
-    overallStory: `당신은 에드바르 뭉크의 오슬로 작업실에 들어섭니다.
-창밖엔 피오르드가 보이고, 노을진 다리 그림이 벽에 걸려 있습니다.
-평생 죽음과 불안을 그린 남자가, 사실은 무엇을 말하고 싶었는지 따라가 보세요.`,
     rooms: [
       { idx: 0, name: '시작방',
-        story: `낡은 작업실. 벽엔 〈절규〉가 걸려 있고, 책상엔 일기장이 펼쳐져 있습니다.
+        story: `당신은 에드바르 뭉크의 오슬로 작업실에 들어섭니다.
+창밖엔 피오르드가 보이고, 노을진 다리 그림이 벽에 걸려 있습니다.
+평생 죽음과 불안을 그린 남자가, 사실은 무엇을 말하고 싶었는지 따라가 보세요.
+
+— 낡은 작업실. 벽엔 〈절규〉가 걸려 있고, 책상엔 일기장이 펼쳐져 있습니다.
 일기장 첫 줄:
 "나는 보이지 않는 공포를 그리고 싶었다."`,
         question: null, answer: null, hint: null, success: null },
@@ -789,14 +791,15 @@ const SAMPLES = {
   leejungseop: {
     artist: 'leejungseop',
     title: '이중섭의 은박지 방',
-    overallStory: `1952년 부산, 피란민 시절.
+    rooms: [
+      { idx: 0, name: '시작방',
+        story: `1952년 부산, 피란민 시절.
 당신은 화가 이중섭의 작은 쪽방에 들어섭니다.
 책상 위엔 담뱃갑 은박지와 못 하나, 일본에서 온 편지 한 장.
 일본으로 떠나보낸 아내와 두 아들을 그리워하며, 그는 은박지에 그림을 새겼습니다.
-가난 속에서도 솟아난 사랑의 흔적을 따라가 보세요.`,
-    rooms: [
-      { idx: 0, name: '시작방',
-        story: `좁은 쪽방. 책상 위엔 구겨진 담뱃갑과 은박지 조각들, 낡은 못 하나.
+가난 속에서도 솟아난 사랑의 흔적을 따라가 보세요.
+
+— 좁은 쪽방. 책상 위엔 구겨진 담뱃갑과 은박지 조각들, 낡은 못 하나.
 벽엔 가족 사진 한 장이 비스듬히 걸려 있습니다.
 "우리 가족에게, 아빠가…"`,
         question: null, answer: null, hint: null, success: null },
@@ -977,7 +980,6 @@ function loadSample(artistKey, draft) {
     id: generateId(),
     artist: sample.artist,
     title: sample.title,
-    overallStory: sample.overallStory,
     rooms: sample.rooms.map(r => ({ ...r, image: r.image || '' })),
   };
   setTheme(sample.artist);
@@ -990,7 +992,6 @@ function startBuild(artistKey) {
     id: generateId(),
     artist: artistKey,
     title: '',
-    overallStory: '',
     rooms: ROOM_CONFIG.map(r => ({
       idx: r.idx,
       name: r.tag.replace(/^[^\s]+\s/, ''),
@@ -1040,9 +1041,9 @@ function renderBuilder() {
       el('div', { class: 'room-nav' },
         el('h3', {}, '📝 전체 설정'),
         el('button', {
-          class: `room-btn ${currentRoomIdx === -1 ? 'active' : ''} ${escapeRoomData.title && escapeRoomData.overallStory ? 'done' : ''}`,
+          class: `room-btn ${currentRoomIdx === -1 ? 'active' : ''} ${escapeRoomData.title ? 'done' : ''}`,
           onclick: () => { currentRoomIdx = -1; renderBuilder(); },
-        }, '🎬 제목 · 전체 스토리'),
+        }, '🎬 제목'),
         el('h3', { style: 'margin-top:16px;' }, '🗺️ 방 구성'),
         ...ROOM_CONFIG.map(r => {
           const room = escapeRoomData.rooms[r.idx];
@@ -1079,15 +1080,9 @@ function renderMetaForm() {
         value: escapeRoomData.title || '',
         oninput: (e) => { escapeRoomData.title = e.target.value; saveDraft(); },
       }),
+      el('div', { class: 'help' }, '체험자가 스캔했을 때 매 방마다 상단에 작게 보여요.'),
     ),
-    el('div', { class: 'field' },
-      el('label', {}, '전체 스토리 프레임 (플레이어의 역할·상황)'),
-      el('textarea', {
-        placeholder: '예) 플레이어 = 동생 테오. 형이 마지막으로 머물렀던 방에 들어가 형이 정말 하고 싶었던 이야기를 찾아낸다.',
-        oninput: (e) => { escapeRoomData.overallStory = e.target.value; saveDraft(); },
-      }, escapeRoomData.overallStory || ''),
-      el('div', { class: 'help' }, '번역표의 "삶 → 이야기" (1개) 내용을 옮겨 적으세요.'),
-    ),
+    el('div', { class: 'help-strip', html: '💡 전체 스토리(플레이어 역할·상황)는 <b>🌀 시작방</b>의 스토리에 바로 써주세요! 시작방이 곧 도입부예요.' }),
     el('div', { class: 'builder-actions' },
       el('button', { onclick: () => { currentRoomIdx = 0; renderBuilder(); } }, '다음: 시작방 →'),
     ),
@@ -1115,15 +1110,15 @@ function renderRoomForm(idx) {
 
   // 스토리/설명
   children.push(el('div', { class: 'field' },
-    el('label', {}, config.idx === 0 ? '오프닝 스토리 + 방 설명' : `방 설명 · 단서 · 분위기`),
+    el('label', {}, config.idx === 0 ? '도입 스토리 (플레이어의 역할 + 첫 방의 분위기)' : `방 설명 · 단서 · 분위기`),
     el('textarea', {
       placeholder: config.idx === 0
-        ? '예) 당신은 테오입니다. 오늘, 형이 마지막으로 머물렀던 노란 방 앞에 섰습니다. 잠긴 문. 형이 남긴 편지 한 통. 이 방 어딘가에 형이 정말로 하고 싶었던 이야기가...'
+        ? '예) 당신은 테오입니다. 형이 마지막으로 머물렀던 노란 방 앞에 섰습니다. 잠긴 문 너머 형이 남긴 편지 한 통...\n\n— 방 안엔 텅 빈 의자와 식탁, 그 위에 놓인 유품 상자가 보입니다.'
         : `예) ${idx === 5 ? '형의 마지막 편지가 당신 앞에 놓입니다. 빈 캔버스에 색 하나를 고르세요...' : '방을 둘러보세요. 빈 의자 하나만 놓인 노란 방. 식탁 위 조각난 편지들이 흩어져 있습니다.'}`,
       oninput: onInput('story'),
     }, room.story || ''),
     el('div', { class: 'help' },
-      config.idx === 0 ? '체험자가 QR을 스캔하면 가장 먼저 이 문장을 만나요' :
+      config.idx === 0 ? '체험자가 ①번 QR을 스캔하면 가장 먼저 이 문장을 만나요. 플레이어의 역할(누구인지) + 첫 방의 분위기를 같이 담아주세요.' :
       config.isFinal ? '체험자의 감정이 자기 연결로 흐르게 해주세요' :
       '공간 분위기, 단서 설명, 스토리 전환 문구 등'
     ),
@@ -1373,10 +1368,6 @@ function validateBeforeQR() {
     alert('"제목"을 입력해주세요.');
     currentRoomIdx = -1; renderBuilder(); return false;
   }
-  if (!escapeRoomData.overallStory) {
-    alert('"전체 스토리"를 입력해주세요.');
-    currentRoomIdx = -1; renderBuilder(); return false;
-  }
   for (const rc of ROOM_CONFIG) {
     const r = escapeRoomData.rooms[rc.idx];
     if (!r.story) {
@@ -1471,7 +1462,6 @@ async function renderPlayer(params) {
     a: escapeData.artist,
     t: escapeData.title,
     n: n,
-    os: n === 0 ? escapeData.overallStory : '',
     r: {
       n: room.name || '',
       s: room.story || '',
@@ -1496,11 +1486,10 @@ async function renderPlayer(params) {
     el('h1', { class: 'player-room-title' }, data.r.n || config.tag.replace(/^[^\s]+\s/, '')),
   ];
 
-  if (data.n === 0 && data.os) {
-    children.push(el('div', { class: 'player-overall-story' }, data.os));
-  }
+  // 시작방 스토리는 프롤로그 스타일, 나머지 방은 일반 스타일
   if (data.r.s) {
-    children.push(el('div', { class: 'player-story' }, data.r.s));
+    const storyClass = data.n === 0 ? 'player-overall-story' : 'player-story';
+    children.push(el('div', { class: storyClass }, data.r.s));
   }
 
   if (data.r.img) {

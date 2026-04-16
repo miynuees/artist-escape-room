@@ -322,7 +322,16 @@ label {
   border-radius: 12px;
   line-height: 0;
 }
-.qr-item .qr-box svg { display: block; }
+.qr-item .qr-box svg,
+.qr-item .qr-box canvas {
+  display: block;
+  width: 180px !important;
+  height: 180px !important;
+}
+@media print {
+  .qr-item .qr-box canvas,
+  .qr-item .qr-box svg { width: 180px !important; height: 180px !important; }
+}
 .qr-item .url-copy {
   font-size: 10px;
   color: var(--muted);
@@ -1350,10 +1359,10 @@ async function renderQRView() {
     const url = buildRoomUrl(escapeId, rc.idx);
     try {
       const qr = new QRCodeStyling({
-        width: 180, height: 180,
+        width: 540, height: 540,
         type: 'canvas',
         data: url,
-        margin: 4,
+        margin: 8,
         qrOptions: { errorCorrectionLevel: 'M' },
         dotsOptions: { color: '#2a2a2a', type: 'dots' },
         cornersSquareOptions: { color: '#2a2a2a', type: 'extra-rounded' },

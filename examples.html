@@ -64,10 +64,6 @@ footer { text-align: center; margin-top: 26px; font-size: 12px; color: var(--mut
   <div class="top">
     <h1>작가 방탈출 완성 예시</h1>
     <p>문제 제작 사이트의 칸 순서 그대로 정리했어요. 내 방탈출을 구상할 때 참고하세요.</p>
-    <div class="btns noprint">
-      <a class="btn" href="./">문제 만들러 가기</a>
-      <button onclick="printAll()">인쇄 / PDF 저장</button>
-    </div>
   </div>
 
   <div class="tips">
@@ -281,12 +277,9 @@ function show(key) {
   document.querySelectorAll('.sample').forEach(el => el.style.display = el.id === 's-' + key ? '' : 'none');
   document.querySelectorAll('#tabs button').forEach(b => b.classList.toggle('on', b.dataset.k === key));
 }
-function printAll() {
-  // 인쇄할 때는 세 예시를 모두 (한 장에 하나씩)
-  document.querySelectorAll('.sample').forEach(el => el.style.display = '');
-  window.print();
-  show(current);
-}
+// Ctrl+P로 인쇄할 때는 세 예시를 모두 (한 장에 하나씩)
+window.addEventListener('beforeprint', () => document.querySelectorAll('.sample').forEach(el => el.style.display = ''));
+window.addEventListener('afterprint', () => show(current));
 
 document.getElementById('samples').innerHTML = keys.map(k => renderSample(k, SAMPLES[k])).join('');
 document.getElementById('tabs').innerHTML = keys.map(k =>

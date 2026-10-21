@@ -6,6 +6,8 @@
 <title>🗺️ 작가 방탈출 제작 · 체험 도구</title>
 <script src="https://cdn.jsdelivr.net/npm/qr-code-styling@1.5.0/lib/qr-code-styling.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/lz-string@1.5.0/libs/lz-string.min.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Gaegu:wght@400;700&family=Nanum+Pen+Script&family=Noto+Sans+KR:wght@300;400;500;700&family=Playfair+Display:wght@400;700&family=Jua&family=Orbitron:wght@500;700&display=swap');
 
@@ -678,14 +680,15 @@ const ARTIST_PRESETS = {
 // 학생이 직접 선택할 수 있는 작가 (예시 전용 작가는 제외)
 const SELECTABLE_ARTISTS = ['gogh', 'frida', 'picasso', 'paik', 'warhol'];
 
+// 개인별 제작: 시작방 + 문제 3개 (QR 4장) → 3번 문제를 맞히면 마지막방이 자동으로 열림 (QR 없음)
 const ROOM_CONFIG = [
-  { idx: 0, tag: '🌀 시작방', role: '이야기 도입 (스토리)', hasQ: false, storyLabel: '오프닝 스토리 (플레이어를 세계로 끌어들이는 첫 마디)', storyHelp: '예: "당신은 테오입니다. 형의 노란 방 앞에 섰습니다..."' },
-  { idx: 1, tag: '🔍 1방', role: '감정 발견 (질문①)', hasQ: true },
-  { idx: 2, tag: '❓ 2방', role: '의미 해독 (질문②)', hasQ: true },
-  { idx: 3, tag: '💫 3방', role: '작가 심화 (질문③)', hasQ: true },
-  { idx: 4, tag: '⚡ 4방', role: '핵심 클라이맥스 (질문④)', hasQ: true },
-  { idx: 5, tag: '🎭 마지막방', role: '자기 연결 (질문⑤) · 공유판 활성화', hasQ: false, isFinal: true },
+  { idx: 0, tag: '🌀 시작방', role: '체험자가 가장 먼저 보는 이야기', hasQ: false, hasQR: true },
+  { idx: 1, tag: '🔍 1번 문제', role: '첫 번째 문제', hasQ: true, hasQR: true },
+  { idx: 2, tag: '❓ 2번 문제', role: '두 번째 문제', hasQ: true, hasQR: true },
+  { idx: 3, tag: '⚡ 3번 문제', role: '세 번째 문제 · 맞히면 마지막방이 열려요', hasQ: true, hasQR: true },
+  { idx: 4, tag: '🎭 마지막방', role: '3번 문제를 맞히면 QR 없이 이어지는 방', hasQ: false, isFinal: true, hasQR: false },
 ];
+const QR_ROOMS = ROOM_CONFIG.filter(r => r.hasQR);
 
 // 🎨 작가별 완성 샘플 (학생들이 구조를 참고할 수 있는 예시 — 일부러 수업 대상 5명과는 다른 작가들로 구성)
 const SAMPLES = {
@@ -727,15 +730,7 @@ const SAMPLES = {
         answer: '감정',
         hint: `형체가 안 보이면 남는 건 빛과 ___뿐이에요. 느낌의 다른 말이죠.`,
         success: `모네는 보이지 않는 것을 보기 시작했어요. 눈이 아닌 마음으로요.` },
-      { idx: 4, name: '오랑주리의 수련',
-        story: `방 사면을 둘러싼 거대한 수련 파노라마.
-파리 오랑주리 미술관의 〈수련〉 연작입니다.
-그림엔 해가 보이지 않고, 연못 전체가 푸른빛으로 잠겨 있습니다.`,
-        question: `이 연못은 어떤 시간대의 모습일까요? (한 글자)`,
-        answer: '밤',
-        hint: `해는 없고, 수련은 푸른빛 속에 고요히 잠겨 있어요. 가장 어두운 시간.`,
-        success: `모네는 죽기 전까지 이 수련을 그렸어요. 파리에 기부한 그의 마지막 선물이죠.` },
-      { idx: 5, name: '자기 연결',
+      { idx: 4, name: '마지막방',
         story: `정원 한쪽에 빈 캔버스와 물감이 놓여 있습니다.
 당신 차례입니다.`,
         question: `당신 하루 중 가장 아름다운 빛의 순간은 언제인가요? 한 줄로 남겨주세요.`,
@@ -773,15 +768,7 @@ const SAMPLES = {
         answer: '5',
         hint: `뭉크는 어머니를 아주 어려서 잃었어요. 손가락 한 손에 꼽히는 나이죠.`,
         success: `뭉크는 평생 죽음의 그림자 속에서 살았어요. 그래서 더 간절히 그림을 붙잡았죠.` },
-      { idx: 3, name: '사랑의 공포',
-        story: `벽엔 〈생의 프리즈〉 연작이 걸려 있습니다 — 〈질투〉, 〈마돈나〉, 〈흡혈귀〉.
-모두 '사랑'을 그린 작품이지만, 분위기는 하나같이 무겁고 불편합니다.
-뭉크에게 사랑은 무엇이었을까요?`,
-        question: `뭉크가 그린 사랑에는 어떤 감정이 섞여 있나요? (두 글자)`,
-        answer: '공포',
-        hint: `〈흡혈귀〉는 사랑받는 사람이 오히려 피를 빨리는 장면이에요. 뭉크에게 사랑은 그만큼 ___스러웠어요.`,
-        success: `뭉크에게 사랑은 구원이자 공포였어요. 가까워질수록 잃을까 두려웠거든요.` },
-      { idx: 4, name: '다리 위의 진실',
+      { idx: 3, name: '다리 위의 진실',
         story: `실제 〈절규〉의 배경인 오슬로 에케베르그 언덕의 다리 사진.
 해질녘 붉은 하늘. 그러나 다리 위엔 아무도 없습니다.
 그가 들었다던 '자연을 관통하는 비명'은 과연 어디서 온 것이었을까요?`,
@@ -789,7 +776,7 @@ const SAMPLES = {
         answer: '불안',
         hint: `비명은 바깥에서 온 게 아니라 안에서 나온 거였어요. 숨겨뒀던 감정의 이름이죠.`,
         success: `뭉크는 도망치지 않고 자기의 불안을 그렸어요. 숨기지 않고 인정하는 것 — 그게 그의 용기였죠.` },
-      { idx: 5, name: '자기 연결',
+      { idx: 4, name: '마지막방',
         story: `책상 위에 빈 노트 한 권과 펜이 놓여 있습니다.
 뭉크는 언제나 일기에 먼저 감정을 적었습니다.`,
         question: `당신이 평소 숨기고 있는 가장 큰 감정은 무엇인가요? 한 줄로 남겨주세요.`,
@@ -828,15 +815,7 @@ const SAMPLES = {
         answer: '가난',
         hint: `그림 그릴 종이도 물감도 살 돈이 없었어요. 담뱃갑 속 ___이 그의 캔버스가 됐죠.`,
         success: `이중섭은 가난조차 예술로 만들었어요. 없는 것에서 만들어내는 것 — 그게 그의 힘이었죠.` },
-      { idx: 3, name: '그림 편지',
-        story: `책상 서랍 속 편지 뭉치들.
-일본의 아내 마사코(이남덕)가 보낸 편지, 두 아들이 그린 그림 편지, 그리고 이중섭이 아이들에게 보낸 답장들.
-이중섭의 편지엔 글보다 더 많은 것이 있었습니다.`,
-        question: `이중섭이 아이들에게 편지를 쓸 때 글보다 더 많이 사용한 것은? (두 글자)`,
-        answer: '그림',
-        hint: `글을 아직 잘 못 읽는 아이들도 알아볼 수 있는 것. 화가가 가장 잘하는 것이죠.`,
-        success: `이중섭은 아이들에게 그림 편지를 보냈어요. 글은 흐려져도 그림은 마음에 오래 남으니까요.` },
-      { idx: 4, name: '길 떠나는 가족',
+      { idx: 3, name: '길 떠나는 가족',
         story: `벽 한 면을 차지한 큰 그림 — 〈길 떠나는 가족〉.
 소달구지에 아내와 두 아들을 태우고, 이중섭이 앞장서서 꽃길을 걷습니다.
 하늘엔 새들이 날고, 모두가 환하게 웃고 있습니다.
@@ -845,7 +824,7 @@ const SAMPLES = {
         answer: '꿈',
         hint: `이중섭은 아내와 아이들을 다시 만나지 못한 채 세상을 떠났어요. 이 가족 여행은 오직 그림 속에서만…`,
         success: `이중섭은 이룰 수 없던 가족 여행을 그림으로 그렸어요. 그리움이 만든 세계였죠.` },
-      { idx: 5, name: '자기 연결',
+      { idx: 4, name: '마지막방',
         story: `책상 위에 빈 은박지 한 장과 못이 놓여 있습니다.
 멀리 있는 누군가에게, 글이 아닌 그림으로 마음을 전할 차례입니다.`,
         question: `당신이 멀리 떨어진 누군가에게 그림으로 한 가지를 보낸다면, 무엇을 그리고 싶나요? 한 줄로 남겨주세요.`,
@@ -898,15 +877,103 @@ function getBaseUrl() {
   return location.origin + location.pathname;
 }
 
+// ==================== 학생 로그인 (예술가 인터뷰와 같은 계정) ====================
+const firebaseConfig = {
+  apiKey: "AIzaSyBtSooSc-eg4zMHQ_QF-ErmYJmtaYT1Fkg",
+  authDomain: "limi-88231.firebaseapp.com",
+  projectId: "limi-88231",
+  storageBucket: "limi-88231.firebasestorage.app",
+};
+let db = null;
+try { firebase.initializeApp(firebaseConfig); db = firebase.firestore(); } catch (e) { console.error(e); }
+const LOGIN_KEY = 'artclassLogin';
+function getLogin() { try { return JSON.parse(localStorage.getItem(LOGIN_KEY) || 'null'); } catch { return null; } }
+let me = getLogin(); // {sid, name}
+const myEscapeRef = () => db.collection('artclass_escape').doc(me.sid);
+const draftKey = () => 'escape_draft_' + (me ? me.sid : '');
+
+function renderLogin() {
+  setTheme('gogh');
+  const app = $('#app');
+  app.innerHTML = '';
+  const err = el('div', { style: 'color:#c04040; font-size:13px; min-height:20px; margin-top:8px;' });
+  const sid = el('input', { type: 'text', inputmode: 'numeric', placeholder: '예) 20201' });
+  const name = el('input', { type: 'text', placeholder: '이름', onkeydown: (e) => { if (e.key === 'Enter') go(); } });
+  const btn = el('button', { style: 'width:100%; margin-top:6px;', onclick: () => go() }, '들어가기');
+  async function go() {
+    const s = sid.value.trim(), n = name.value.trim();
+    if (!/^\d{4,6}$/.test(s)) { err.textContent = '학번을 숫자로 넣어주세요.'; return; }
+    if (!n) { err.textContent = '이름을 넣어주세요.'; return; }
+    btn.disabled = true; err.textContent = '';
+    try {
+      const ref = db.collection('artclass_students').doc(s);
+      const snap = await ref.get();
+      if (snap.exists && snap.data().name && snap.data().name !== n) {
+        err.textContent = '이 학번은 다른 이름으로 등록되어 있어요. 학번을 확인하거나 선생님께 말해주세요.'; return;
+      }
+      await ref.set({ sid: s, name: n, updatedAt: Date.now() }, { merge: true });
+      me = { sid: s, name: n };
+      localStorage.setItem(LOGIN_KEY, JSON.stringify(me));
+      await pullServerDraft();
+      renderLanding();
+    } catch (e) {
+      err.textContent = '연결에 실패했어요. 인터넷을 확인해주세요.';
+    } finally { btn.disabled = false; }
+  }
+  app.appendChild(el('div', { class: 'container' },
+    el('div', { class: 'card', style: 'max-width:420px; margin:40px auto;' },
+      el('h1', { style: 'text-align:center;' }, '🗺️ 작가 방탈출 만들기'),
+      el('p', { style: 'text-align:center; font-size:13px; color:var(--muted); margin-bottom:18px;' },
+        '다음에도 같은 학번·이름으로 들어오면 이어서 만들 수 있어요.'),
+      el('div', { class: 'field' }, el('label', {}, '학번'), sid),
+      el('div', { class: 'field' }, el('label', {}, '이름'), name),
+      btn, err,
+    ),
+    renderFooter(),
+  ));
+}
+
+// 서버에 저장된 작업을 이 컴퓨터로 가져오기 (다른 컴퓨터에서 이어하기)
+async function pullServerDraft() {
+  try {
+    const snap = await myEscapeRef().get();
+    if (snap.exists && snap.data().data) {
+      localStorage.setItem(draftKey(), JSON.stringify(snap.data().data));
+    }
+  } catch (e) { console.error(e); }
+}
+
+function logout() {
+  if (!confirm('로그아웃할까요?')) return;
+  localStorage.removeItem(LOGIN_KEY);
+  me = null; escapeRoomData = null;
+  renderLogin();
+}
+
+let pushTimer = null;
 function saveDraft() {
-  if (escapeRoomData) {
-    localStorage.setItem('escape_draft', JSON.stringify(escapeRoomData));
+  // 예시는 저장하지 않음 (내 작업을 덮어쓰지 않도록)
+  if (escapeRoomData && !escapeRoomData.isSample) {
+    localStorage.setItem(draftKey(), JSON.stringify(escapeRoomData));
+    if (!me || !db) return;
+    // 선생님이 볼 수 있도록 서버에도 저장 (타이핑 멈추고 1초 뒤)
+    clearTimeout(pushTimer);
+    const snapshot = JSON.parse(JSON.stringify(escapeRoomData));
+    pushTimer = setTimeout(() => {
+      myEscapeRef().set({ sid: me.sid, name: me.name, updatedAt: Date.now(), data: snapshot }, { merge: true })
+        .catch(e => console.error('저장 실패', e));
+    }, 1000);
   }
 }
 function loadDraft() {
   try {
-    const raw = localStorage.getItem('escape_draft');
-    return raw ? JSON.parse(raw) : null;
+    const raw = localStorage.getItem(draftKey());
+    const d = raw ? JSON.parse(raw) : null;
+    // 예전(모둠용 6칸) 작업은 4번 문제를 빼고 5칸으로 맞춤
+    if (d && d.rooms && d.rooms.length === 6) {
+      d.rooms = [d.rooms[0], d.rooms[1], d.rooms[2], d.rooms[3], { ...d.rooms[5], idx: 4 }];
+    }
+    return d;
   } catch { return null; }
 }
 
@@ -915,6 +982,7 @@ function route() {
   const params = new URLSearchParams(location.search);
   const mode = params.get('mode');
   if (mode === 'play') return renderPlayer(params);
+  if (!me) return renderLogin();
   if (mode === 'build') return renderBuilder();
   return renderLanding();
 }
@@ -930,7 +998,11 @@ function renderLanding() {
     el('div', { class: 'app-header' },
       el('div', { class: 'brand' },
         el('h1', {}, '🗺️ 작가 방탈출 제작 · 체험 도구'),
-        el('div', { class: 'sub' }, '모둠이 만들고, 다른 모둠이 체험하는 방탈출 도구'),
+        el('div', { class: 'sub' }, '내가 세 문제를 만들고, 친구가 체험하는 방탈출 도구'),
+      ),
+      el('div', { class: 'mode-switch', style: 'align-items:center;' },
+        el('span', { style: 'font-size:13px; color:var(--muted);' }, `${me.sid} ${me.name}`),
+        el('button', { class: 'ghost small', onclick: logout }, '로그아웃'),
       ),
     ),
     el('div', { class: 'landing' },
@@ -949,12 +1021,16 @@ function renderLanding() {
       draft ? el('div', { class: 'card', style: 'max-width:520px; margin:0 auto 14px; text-align:center;' },
         el('div', {}, '💾 저장된 작업이 있어요'),
         el('div', { style: 'font-size:13px; color:var(--muted); margin:6px 0;' },
-          `작가: ${ARTIST_PRESETS[draft.artist]?.name || draft.artist} · 제목: ${draft.title || '(제목 없음)'}`
+          `${draft.maker ? '만든 사람: ' + draft.maker + ' · ' : ''}작가: ${ARTIST_PRESETS[draft.artist]?.name || draft.artist} · 제목: ${draft.title || '(제목 없음)'}`
         ),
         el('div', { style: 'display:flex; gap:8px; justify-content:center;' },
           el('button', { onclick: () => { escapeRoomData = draft; setTheme(draft.artist); renderBuilder(); } }, '이어서 작업하기'),
           el('button', { class: 'ghost small', onclick: () => {
-            if (confirm('저장된 작업을 삭제할까요?')) { localStorage.removeItem('escape_draft'); renderLanding(); }
+            if (confirm('저장된 작업을 삭제할까요? 선생님 화면에서도 사라져요.')) {
+              localStorage.removeItem(draftKey());
+              myEscapeRef().delete().catch(e => console.error(e));
+              renderLanding();
+            }
           } }, '삭제'),
         )
       ) : null,
@@ -984,7 +1060,6 @@ function renderLanding() {
 function loadSample(artistKey, draft) {
   const sample = SAMPLES[artistKey];
   if (!sample) return;
-  if (draft && !confirm(`저장된 작업이 있어요. ${ARTIST_PRESETS[artistKey].name} 예시로 덮어쓸까요?`)) return;
   escapeRoomData = {
     id: generateId(),
     artist: sample.artist,
@@ -999,9 +1074,12 @@ function loadSample(artistKey, draft) {
 }
 
 function startBuild(artistKey) {
+  const draft = loadDraft();
+  if (draft && !draft.isSample && !confirm(`저장된 작업("${draft.title || '제목 없음'}")이 있어요. 지우고 ${ARTIST_PRESETS[artistKey].name}로 새로 시작할까요?`)) return;
   escapeRoomData = {
     id: generateId(),
     artist: artistKey,
+    maker: `${me.sid} ${me.name}`,
     title: '',
     rooms: ROOM_CONFIG.map(r => ({
       idx: r.idx,
@@ -1036,7 +1114,7 @@ function renderBuilder() {
     el('div', { class: 'app-header' },
       el('div', { class: 'brand' },
         el('h1', {}, `${artist.emoji} ${artist.name}${escapeRoomData.isSample ? ' 예시 (참고용)' : ' 방탈출 만들기'}`),
-        el('div', { class: 'sub' }, `${escapeRoomData.title || '(제목 없음)'} · ID: ${escapeRoomData.id}`),
+        el('div', { class: 'sub' }, `${escapeRoomData.title || '(제목 없음)'}${escapeRoomData.maker ? ' · ' + escapeRoomData.maker : ''} · ID: ${escapeRoomData.id}`),
       ),
       el('div', { class: 'mode-switch' },
         el('button', { class: 'ghost small', onclick: () => {
@@ -1050,16 +1128,16 @@ function renderBuilder() {
 
     escapeRoomData.isSample
       ? el('div', { class: 'help-strip', style: 'background:#fef5d0; border-left-color:#e8a838; color:#8a6a1a;', html: '🎨 <b>이 방탈출은 참고용 예시입니다.</b> 구조와 작성 흐름을 살펴보고, 우리 작가로 새로 만들어 보세요!' })
-      : el('div', { class: 'help-strip', html: '💡 6개 방을 모두 채우면 오른쪽 위 <b>"QR 생성"</b> 버튼으로 넘어가세요. 작업은 자동 저장됩니다.' }),
+      : el('div', { class: 'help-strip', html: '💡 시작방 · 문제 3개 · 마지막방을 모두 채우면 오른쪽 위 <b>"QR 생성"</b> 버튼으로 넘어가세요. QR은 4장 나오고, 마지막방은 3번 문제를 맞히면 바로 이어져요. 작업은 자동 저장됩니다.' }),
 
     el('div', { class: 'builder-layout' },
       // 사이드 네비
       el('div', { class: 'room-nav' },
         el('h3', {}, '📝 전체 설정'),
         el('button', {
-          class: `room-btn ${currentRoomIdx === -1 ? 'active' : ''} ${escapeRoomData.title ? 'done' : ''}`,
+          class: `room-btn ${currentRoomIdx === -1 ? 'active' : ''} ${escapeRoomData.title && (escapeRoomData.maker || escapeRoomData.isSample) ? 'done' : ''}`,
           onclick: () => { currentRoomIdx = -1; renderBuilder(); },
-        }, '🎬 제목'),
+        }, '🎬 이름 · 제목'),
         el('h3', { style: 'margin-top:16px;' }, '🗺️ 방 구성'),
         ...ROOM_CONFIG.map(r => {
           const room = escapeRoomData.rooms[r.idx];
@@ -1086,8 +1164,14 @@ function renderCurrentForm() {
 function renderMetaForm() {
   return [
     el('div', { class: 'room-header' },
-      el('h2', {}, '🎬 제목과 전체 스토리'),
+      el('h2', {}, '🎬 이름과 제목'),
       el('div', { class: 'role' }, '방탈출 전체를 감싸는 틀'),
+    ),
+    el('div', { class: 'field' },
+      el('label', {}, '만든 사람'),
+      el('div', { style: 'padding:10px 12px; background:var(--bg); border-radius:8px; font-size:14px;' },
+        escapeRoomData.maker || '-'),
+      el('div', { class: 'help' }, '로그인한 학번·이름이 자동으로 들어가요. QR 인쇄지와 체험 화면에 함께 보여요.'),
     ),
     el('div', { class: 'field' },
       el('label', {}, '방탈출 제목'),
@@ -1130,12 +1214,12 @@ function renderRoomForm(idx) {
     el('textarea', {
       placeholder: config.idx === 0
         ? '예) 당신은 테오입니다. 형이 마지막으로 머물렀던 노란 방 앞에 섰습니다. 잠긴 문 너머 형이 남긴 편지 한 통...\n\n— 방 안엔 텅 빈 의자와 식탁, 그 위에 놓인 유품 상자가 보입니다.'
-        : `예) ${idx === 5 ? '형의 마지막 편지가 당신 앞에 놓입니다. 빈 캔버스에 색 하나를 고르세요...' : '방을 둘러보세요. 빈 의자 하나만 놓인 노란 방. 식탁 위 조각난 편지들이 흩어져 있습니다.'}`,
+        : `예) ${config.isFinal ?'형의 마지막 편지가 당신 앞에 놓입니다. 빈 캔버스에 색 하나를 고르세요...' : '방을 둘러보세요. 빈 의자 하나만 놓인 노란 방. 식탁 위 조각난 편지들이 흩어져 있습니다.'}`,
       oninput: onInput('story'),
     }, room.story || ''),
     el('div', { class: 'help' },
       config.idx === 0 ? '체험자가 ①번 QR을 스캔하면 가장 먼저 이 문장을 만나요. 플레이어의 역할(누구인지) + 첫 방의 분위기를 같이 담아주세요.' :
-      config.isFinal ? '체험자의 감정이 자기 연결로 흐르게 해주세요' :
+      config.isFinal ? '3번 문제를 맞히면 QR 없이 바로 이 방이 열려요.' :
       '공간 분위기, 연출 설명, 스토리 전환 문구 등'
     ),
   ));
@@ -1177,15 +1261,20 @@ function renderRoomForm(idx) {
       el('div', { class: 'field' },
         el('label', {}, '정답 맞힌 후 보여줄 문구 (선택)'),
         el('textarea', {
-          placeholder: '예) 문이 열립니다. 다음 방으로 — 별이 빛나는 밤이 기다립니다.',
+          placeholder: ROOM_CONFIG[idx + 1]?.isFinal
+            ? '예) 마지막 문이 천천히 열립니다. 형이 끝내 하고 싶었던 말이 그 안에 있습니다.'
+            : '예) 문이 열립니다. 다음 방으로 — 별이 빛나는 밤이 기다립니다.',
           oninput: onInput('success'),
         }, room.success || ''),
+        ROOM_CONFIG[idx + 1]?.isFinal
+          ? el('div', { class: 'help' }, '이 문구 아래에 "마지막 방으로" 버튼이 나타나요.')
+          : null,
       ),
     );
   } else if (config.isFinal) {
     children.push(
       el('div', { class: 'field' },
-        el('label', {}, '자기 연결 질문 (체험자가 답을 남길 질문)'),
+        el('label', {}, '마지막 질문 (체험자가 자기 이야기로 답을 남겨요)'),
         el('textarea', {
           placeholder: '예) 당신에게 별은 무엇인가요? 한 줄로 남겨주세요.',
           oninput: onInput('question'),
@@ -1315,6 +1404,10 @@ async function renderQRView() {
   let escapeId;
   try {
     escapeId = await saveEscapeToWorker();
+    // 선생님 화면에서 체험 링크를 열 수 있도록 QR 주소도 저장
+    clearTimeout(pushTimer);
+    myEscapeRef().set({ sid: me.sid, name: me.name, updatedAt: Date.now(), eid: escapeId,
+      data: JSON.parse(JSON.stringify(escapeRoomData)) }, { merge: true }).catch(e => console.error(e));
   } catch (err) {
     app.innerHTML = '';
     app.appendChild(el('div', { class: 'container' },
@@ -1333,7 +1426,7 @@ async function renderQRView() {
     el('div', { class: 'app-header no-print' },
       el('div', { class: 'brand' },
         el('h1', {}, `📱 QR 코드 — ${escapeRoomData.title || '(제목 없음)'}`),
-        el('div', { class: 'sub' }, `${artist.emoji} ${artist.name} · 총 6개 방 · ID: ${escapeId}`),
+        el('div', { class: 'sub' }, `${escapeRoomData.maker ? escapeRoomData.maker + ' · ' : ''}${artist.emoji} ${artist.name} · QR ${QR_ROOMS.length}장 · ID: ${escapeId}`),
       ),
       el('div', { class: 'mode-switch' },
         el('button', { class: 'ghost small', onclick: () => { renderBuilder(); } }, '← 수정하기'),
@@ -1341,16 +1434,16 @@ async function renderQRView() {
       ),
     ),
     el('div', { class: 'help-strip no-print' },
-      '💡 각 QR을 출력해서 해당 방 위치에 붙이세요. 체험자는 QR을 스캔하면 해당 방 화면으로 바로 이동합니다.'
+      '💡 각 QR을 출력해서 해당 방 위치에 붙이세요. 체험자는 QR을 스캔하면 해당 방 화면으로 바로 이동합니다. 마지막방은 QR이 없어요 — 3번 문제를 맞히면 바로 이어집니다.'
     ),
     el('div', { class: 'qr-grid' },
-      ...ROOM_CONFIG.map(rc => {
+      ...QR_ROOMS.map(rc => {
         const room = escapeRoomData.rooms[rc.idx];
         const url = buildRoomUrl(escapeId, rc.idx);
         const id = `qr-${rc.idx}`;
         return el('div', { class: 'qr-item' },
           el('div', { class: 'title' }, rc.tag),
-          el('div', { class: 'sub' }, room.name || rc.tag.replace(/^[^\s]+\s/, '')),
+          el('div', { class: 'sub' }, (room.name || rc.tag.replace(/^[^\s]+\s/, '')) + (escapeRoomData.maker ? ` · ${escapeRoomData.maker}` : '')),
           el('div', { class: 'qr-box', id }),
           el('div', { class: 'no-print', style: 'display:flex; gap:6px; margin-top:8px; justify-content:center;' },
             el('button', { class: 'small', onclick: (e) => copyUrl(url, e.target) }, '🔗 URL 복사'),
@@ -1365,7 +1458,7 @@ async function renderQRView() {
 
   // QR 순차 생성 (동시에 만들면 라이브러리 버그로 같은 URL로 덮어써짐)
   await new Promise(r => setTimeout(r, 40));
-  for (const rc of ROOM_CONFIG) {
+  for (const rc of QR_ROOMS) {
     const box = document.getElementById(`qr-${rc.idx}`);
     if (!box || !window.QRCodeStyling) continue;
     box.innerHTML = '';
@@ -1391,6 +1484,10 @@ async function renderQRView() {
 }
 
 function validateBeforeQR() {
+  if (!escapeRoomData.maker) {
+    alert('"만든 사람"을 입력해주세요.');
+    currentRoomIdx = -1; renderBuilder(); return false;
+  }
   if (!escapeRoomData.title) {
     alert('"제목"을 입력해주세요.');
     currentRoomIdx = -1; renderBuilder(); return false;
@@ -1406,7 +1503,7 @@ function validateBeforeQR() {
       currentRoomIdx = rc.idx; renderBuilder(); return false;
     }
     if (rc.isFinal && !r.question) {
-      alert(`${rc.tag}의 "자기 연결 질문"을 입력해주세요.`);
+      alert(`${rc.tag}의 "마지막 질문"을 입력해주세요.`);
       currentRoomIdx = rc.idx; renderBuilder(); return false;
     }
   }
@@ -1486,8 +1583,10 @@ async function renderPlayer(params) {
   // 기존 형식과 호환되는 data 객체 만들기
   const data = {
     id: escapeData.id,
+    eid: eid,
     a: escapeData.artist,
     t: escapeData.title,
+    m: escapeData.maker || '',
     n: n,
     r: {
       n: room.name || '',
@@ -1502,13 +1601,17 @@ async function renderPlayer(params) {
 
   setTheme(data.a);
   const config = ROOM_CONFIG[data.n];
+  if (!config) {
+    $('#app').innerHTML = '<div class="container"><div class="card"><h2>⚠️ 방을 찾을 수 없어요</h2></div></div>';
+    return;
+  }
   const isFinal = config.isFinal;
 
   const app = $('#app');
   app.innerHTML = '';
 
   const children = [
-    data.t ? el('div', { class: 'player-escape-title' }, `🎨 ${data.t}`) : null,
+    data.t ? el('div', { class: 'player-escape-title' }, `🎨 ${data.t}${data.m ? ' · ' + data.m : ''}`) : null,
     el('div', { class: 'player-room-tag' }, config.tag),
     el('h1', { class: 'player-room-title' }, data.r.n || config.tag.replace(/^[^\s]+\s/, '')),
   ];
@@ -1578,6 +1681,14 @@ function checkAnswer(data) {
     fb.innerHTML = '✅ 정답입니다!' + (data.r.sc ? '\n\n' + escapeHtml(data.r.sc) : '');
     fb.innerHTML = fb.innerHTML.replace(/\n/g, '<br>');
     input.disabled = true;
+    // 3번 문제 → QR 없이 마지막방으로 이어짐
+    if (ROOM_CONFIG[data.n + 1]?.isFinal && !$('#to-final')) {
+      fb.after(el('div', { id: 'to-final', style: 'text-align:center; margin-top:16px;' },
+        el('button', {
+          onclick: () => { location.href = buildRoomUrl(data.eid, data.n + 1); },
+        }, '🎭 마지막 방으로 →'),
+      ));
+    }
   } else {
     fb.className = 'feedback wrong show';
     fb.textContent = '❌ 다시 생각해보세요.';

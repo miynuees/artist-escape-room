@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>작가 방탈출 · 선생님</title>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Gaegu:wght@400;700&family=Noto+Sans+KR:wght@300;400;500;700&display=swap');
+* { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --main: #8ab861; --main-d: #5a7738; --accent: #f0c850;
+  --bg: #f5f9f0; --card: #fff; --text: #3a4a2e; --muted: #7a8a66; --line: #e3edd4;
+}
+body { font-family: 'Noto Sans KR', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; line-height: 1.6; padding: 20px; }
+h1, h2, h3 { font-family: 'Gaegu', sans-serif; color: var(--main-d); }
+button { font-family: inherit; padding: 8px 14px; border: none; border-radius: 10px; background: var(--main); color: #fff; cursor: pointer; font-size: 13px; font-weight: 500; }
+button:hover { opacity: .88; }
+button.ghost { background: #fff; border: 1.5px solid var(--main); color: var(--main-d); }
+button.warn { background: #fff; border: 1.5px solid #d08080; color: #b04040; }
+input, select { font-family: inherit; padding: 9px 12px; border: 1.5px solid #d4e4b8; border-radius: 8px; font-size: 14px; background: #fff; color: var(--text); }
+.hidden { display: none !important; }
+.container { max-width: 1200px; margin: 0 auto; }
+
+/* 잠금 */
+.lock { max-width: 360px; margin: 80px auto; background: var(--card); border-radius: 18px; padding: 30px; text-align: center; box-shadow: 0 4px 16px rgba(120,160,90,.12); }
+.lock h1 { font-size: 28px; margin-bottom: 6px; }
+.lock p { font-size: 13px; color: var(--muted); margin-bottom: 16px; }
+.lock input { width: 100%; text-align: center; margin-bottom: 10px; }
+.lock .err { color: #c04040; font-size: 13px; min-height: 20px; }
+
+/* 헤더 */
+.top { background: var(--card); border-radius: 16px; padding: 16px 22px; margin-bottom: 14px; display: flex; flex-wrap: wrap; gap: 12px; align-items: center; box-shadow: 0 4px 16px rgba(120,160,90,.1); }
+.top h1 { font-size: 26px; flex: 1; min-width: 200px; }
+.tabs { display: flex; gap: 6px; flex-wrap: wrap; }
+.tab { background: #fff; color: var(--muted); border: 1.5px solid var(--line); }
+.tab.on { background: var(--main); color: #fff; border-color: var(--main); }
+.filters { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; align-items: center; }
+.filters .count { font-size: 13px; color: var(--muted); }
+
+/* 목록 + 상세 */
+.layout { display: grid; grid-template-columns: 280px 1fr; gap: 14px; align-items: start; }
+@media (max-width: 760px) { .layout { grid-template-columns: 1fr; } }
+.list { background: var(--card); border-radius: 14px; padding: 10px; box-shadow: 0 4px 16px rgba(120,160,90,.1); max-height: 78vh; overflow: auto; }
+.item { padding: 10px 12px; border-radius: 10px; cursor: pointer; border: 1.5px solid transparent; margin-bottom: 4px; }
+.item:hover { background: var(--bg); }
+.item.on { background: #eef6e4; border-color: var(--main); }
+.item .who { font-weight: 700; font-size: 14px; }
+.item .meta { font-size: 12px; color: var(--muted); }
+.empty { color: var(--muted); text-align: center; padding: 30px 10px; font-size: 14px; }
+.detail { background: var(--card); border-radius: 14px; padding: 22px 26px; box-shadow: 0 4px 16px rgba(120,160,90,.1); min-height: 300px; }
+.detail .head { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; padding-bottom: 12px; margin-bottom: 14px; border-bottom: 2px dashed var(--line); }
+.detail .head h2 { font-size: 26px; flex: 1; min-width: 200px; }
+.pill { display: inline-block; font-size: 12px; padding: 3px 10px; border-radius: 20px; background: #eef6e4; color: var(--main-d); font-weight: 600; }
+.pill.gray { background: #f0f0ea; color: #8a8a7a; }
+
+/* 방탈출 방 카드 */
+.room { border: 1.5px solid var(--line); border-radius: 12px; padding: 14px 16px; margin-bottom: 12px; }
+.room .tag { font-weight: 700; color: var(--main-d); font-size: 14px; margin-bottom: 6px; }
+.room .row { display: grid; grid-template-columns: 84px 1fr; gap: 8px; font-size: 14px; margin-top: 4px; }
+.room .row .k { color: var(--muted); font-size: 12.5px; padding-top: 2px; }
+.room .row .v { white-space: pre-wrap; word-break: break-word; }
+.room .row .v.ans { font-weight: 700; color: #b06a10; }
+.room .blank { color: #c0c0b0; font-style: italic; }
+.room img { max-width: 220px; max-height: 160px; border-radius: 8px; border: 2px solid var(--line); margin-top: 6px; cursor: zoom-in; }
+
+/* 인터뷰 */
+.artist-block { margin-bottom: 20px; }
+.artist-block h3 { font-size: 22px; margin-bottom: 8px; }
+.chat { background: #faf7f3; border-radius: 12px; padding: 12px; display: flex; flex-direction: column; gap: 8px; max-height: 480px; overflow: auto; }
+.msg { max-width: 82%; padding: 9px 13px; border-radius: 14px; font-size: 13.5px; white-space: pre-wrap; word-break: break-word; line-height: 1.7; }
+.msg.user { align-self: flex-end; background: #8b6f47; color: #fff; border-bottom-right-radius: 4px; }
+.msg.assistant, .msg.artist { align-self: flex-start; background: #fff; border-bottom-left-radius: 4px; box-shadow: 0 1px 4px rgba(0,0,0,.05); }
+.msg.system { display: none; }
+
+/* 계정 */
+table { width: 100%; border-collapse: collapse; font-size: 14px; background: var(--card); border-radius: 14px; overflow: hidden; box-shadow: 0 4px 16px rgba(120,160,90,.1); }
+th, td { padding: 10px 14px; text-align: left; border-bottom: 1px solid var(--line); }
+th { background: #eef6e4; color: var(--main-d); font-size: 13px; }
+
+.lightbox { position: fixed; inset: 0; background: rgba(0,0,0,.85); display: flex; align-items: center; justify-content: center; z-index: 99; cursor: zoom-out; padding: 20px; }
+.lightbox img { max-width: 100%; max-height: 100%; border-radius: 8px; }
+</style>
+</head>
+<body>
+
+<div id="lock" class="lock">
+  <h1>👩‍🏫 선생님 화면</h1>
+  <p>작가 방탈출 · 예술가 인터뷰 모아보기</p>
+  <input id="pw" type="password" placeholder="비밀번호" onkeydown="if(event.key==='Enter')unlock()">
+  <button style="width:100%;" onclick="unlock()">열기</button>
+  <div class="err" id="lockErr"></div>
+</div>
+
+<div id="main" class="container hidden">
+  <div class="top">
+    <h1>👩‍🏫 작가 방탈출 · 선생님 화면</h1>
+    <div class="tabs">
+      <button class="tab on" data-tab="escape" onclick="setTab('escape')">🗺️ 방탈출 문제</button>
+      <button class="tab" data-tab="interview" onclick="setTab('interview')">🎨 예술가 인터뷰</button>
+      <button class="tab" data-tab="accounts" onclick="setTab('accounts')">👤 학생 계정</button>
+    </div>
+  </div>
+  <div class="filters">
+    <select id="classSel" onchange="render()"><option value="">전체 반</option></select>
+    <input id="search" placeholder="학번·이름 검색" oninput="render()">
+    <span class="count" id="count"></span>
+  </div>
+  <div id="view"></div>
+</div>
+
+<script>
+const firebaseConfig = {
+  apiKey: "AIzaSyBtSooSc-eg4zMHQ_QF-ErmYJmtaYT1Fkg",
+  authDomain: "limi-88231.firebaseapp.com",
+  projectId: "limi-88231",
+  storageBucket: "limi-88231.firebasestorage.app",
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+const TEACHER_PW = '0615';
+
+const ARTISTS = {
+  gogh: { emoji: '🌻', name: '빈센트 반 고흐' },
+  frida: { emoji: '🌺', name: '프리다 칼로' },
+  picasso: { emoji: '🎭', name: '파블로 피카소' },
+  paik: { emoji: '📺', name: '백남준' },
+  warhol: { emoji: '🥫', name: '앤디 워홀' },
+};
+const ROOM_TAGS = ['🌀 시작방', '🔍 1번 문제', '❓ 2번 문제', '⚡ 3번 문제', '🎭 마지막방'];
+const PLAY_BASE = new URL('./', location.href).href;
+
+const state = { tab: 'escape', escape: [], interview: [], students: [], sel: null };
+
+function esc(s) { return String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
+function fmt(ts) {
+  if (!ts) return '';
+  const d = new Date(ts);
+  return `${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+}
+// 학번 20201 → "2학년 2반"
+function classOf(sid) {
+  const s = String(sid);
+  if (s.length === 5) return `${s[0]}학년 ${parseInt(s.slice(1, 3), 10)}반`;
+  return '기타';
+}
+
+function unlock() {
+  if (document.getElementById('pw').value !== TEACHER_PW) {
+    document.getElementById('lockErr').textContent = '비밀번호가 달라요.'; return;
+  }
+  try { sessionStorage.setItem('artclassTeacher', '1'); } catch {}
+  start();
+}
+
+function start() {
+  document.getElementById('lock').classList.add('hidden');
+  document.getElementById('main').classList.remove('hidden');
+  const sortBySid = arr => arr.sort((a, b) => String(a.sid).localeCompare(String(b.sid)));
+  db.collection('artclass_escape').onSnapshot(snap => { state.escape = sortBySid(snap.docs.map(d => d.data())); refreshClasses(); render(); });
+  db.collection('artclass_interview').onSnapshot(snap => { state.interview = sortBySid(snap.docs.map(d => d.data())); refreshClasses(); render(); });
+  db.collection('artclass_students').onSnapshot(snap => { state.students = sortBySid(snap.docs.map(d => d.data())); refreshClasses(); render(); });
+}
+
+function refreshClasses() {
+  const sel = document.getElementById('classSel');
+  const cur = sel.value;
+  const all = new Set([...state.students, ...state.escape, ...state.interview].map(x => classOf(x.sid)));
+  sel.innerHTML = '<option value="">전체 반</option>' + [...all].sort().map(c => `<option ${c === cur ? 'selected' : ''}>${c}</option>`).join('');
+}
+
+function setTab(t) {
+  state.tab = t; state.sel = null;
+  document.querySelectorAll('.tab').forEach(b => b.classList.toggle('on', b.dataset.tab === t));
+  render();
+}
+
+function filtered(arr) {
+  const c = document.getElementById('classSel').value;
+  const q = document.getElementById('search').value.trim();
+  return arr.filter(x => (!c || classOf(x.sid) === c) && (!q || String(x.sid).includes(q) || (x.name || '').includes(q)));
+}
+
+function render() {
+  const view = document.getElementById('view');
+  if (state.tab === 'accounts') return renderAccounts(view);
+  const arr = filtered(state.tab === 'escape' ? state.escape : state.interview);
+  document.getElementById('count').textContent = `${arr.length}명`;
+  if (state.sel && !arr.find(x => x.sid === state.sel)) state.sel = null;
+  if (!state.sel && arr.length) state.sel = arr[0].sid;
+  const cur = arr.find(x => x.sid === state.sel);
+
+  view.innerHTML = `
+    <div class="layout">
+      <div class="list">${arr.length ? arr.map(x => `
+        <div class="item ${x.sid === state.sel ? 'on' : ''}" onclick="state.sel='${esc(x.sid)}'; render();">
+          <div class="who">${esc(x.sid)} ${esc(x.name)}</div>
+          <div class="meta">${state.tab === 'escape' ? escapeMeta(x) : interviewMeta(x)}</div>
+        </div>`).join('') : '<div class="empty">아직 아무도 없어요</div>'}
+      </div>
+      <div class="detail">${cur ? (state.tab === 'escape' ? escapeDetail(cur) : interviewDetail(cur)) : '<div class="empty">왼쪽에서 학생을 골라주세요</div>'}</div>
+    </div>`;
+}
+
+// ---------- 방탈출 ----------
+function filledCount(d) {
+  const rooms = (d && d.rooms) || [];
+  return rooms.filter((r, i) => r && r.story && (i === 0 || r.question) && (i === 0 || i === 4 || r.answer)).length;
+}
+function escapeMeta(x) {
+  const d = x.data || {};
+  const a = ARTISTS[d.artist];
+  return `${a ? a.emoji + ' ' : ''}${esc(d.title || '(제목 없음)')} · ${filledCount(d)}/5칸 ${x.eid ? '· QR ✅' : ''} · ${fmt(x.updatedAt)}`;
+}
+function escapeDetail(x) {
+  const d = x.data || {};
+  const a = ARTISTS[d.artist] || { emoji: '', name: d.artist || '' };
+  const rooms = d.rooms || [];
+  const row = (k, v, cls = '') => `<div class="row"><div class="k">${k}</div><div class="v ${cls}">${v ? esc(v) : '<span class="blank">비어 있음</span>'}</div></div>`;
+  return `
+    <div class="head">
+      <h2>${a.emoji} ${esc(d.title || '(제목 없음)')}</h2>
+      <span class="pill">${esc(x.sid)} ${esc(x.name)}</span>
+      <span class="pill">${esc(a.name)}</span>
+      <span class="pill ${filledCount(d) === 5 ? '' : 'gray'}">${filledCount(d)}/5칸</span>
+      ${x.eid
+        ? `<button class="ghost" onclick="window.open('${PLAY_BASE}?mode=play&eid=${esc(x.eid)}&n=0','_blank')">👁️ 체험해보기</button>`
+        : '<span class="pill gray">QR 아직 안 만듦</span>'}
+    </div>
+    ${ROOM_TAGS.map((tag, i) => {
+      const r = rooms[i] || {};
+      return `<div class="room">
+        <div class="tag">${tag}${r.name && !tag.endsWith(r.name) ? ' · ' + esc(r.name) : ''}</div>
+        ${row(i === 0 ? '도입 이야기' : '방 설명', r.story)}
+        ${r.image ? `<div class="row"><div class="k">사진</div><div class="v"><img src="${esc(r.image)}" onclick="lightbox(this.src)"></div></div>` : ''}
+        ${i >= 1 && i <= 3 ? row('문제', r.question) + row('정답', r.answer, 'ans') + row('힌트', r.hint) + row('정답 문구', r.success) : ''}
+        ${i === 4 ? row('마지막 질문', r.question) : ''}
+      </div>`;
+    }).join('')}
+    <div style="font-size:12px; color:var(--muted); text-align:right;">마지막 저장 ${fmt(x.updatedAt)}</div>`;
+}
+
+// ---------- 인터뷰 ----------
+function qCount(msgs) { return (msgs || []).filter(m => m.role === 'user').length; }
+function interviewMeta(x) {
+  const chats = x.chats || {};
+  const parts = Object.keys(ARTISTS).filter(k => qCount(chats[k]) > 0).map(k => `${ARTISTS[k].emoji}${qCount(chats[k])}`);
+  return `${parts.join(' ') || '질문 없음'} · ${fmt(x.updatedAt)}`;
+}
+function interviewDetail(x) {
+  const chats = x.chats || {};
+  const used = Object.keys(ARTISTS).filter(k => qCount(chats[k]) > 0);
+  return `
+    <div class="head">
+      <h2>🎨 ${esc(x.sid)} ${esc(x.name)}</h2>
+      <span class="pill">질문 ${used.reduce((s, k) => s + qCount(chats[k]), 0)}개</span>
+    </div>
+    ${used.length ? used.map(k => `
+      <div class="artist-block">
+        <h3>${ARTISTS[k].emoji} ${ARTISTS[k].name} <span class="pill">질문 ${qCount(chats[k])}개</span></h3>
+        <div class="chat">${chats[k].map(m => `<div class="msg ${esc(m.role)}">${esc(m.content)}</div>`).join('')}</div>
+      </div>`).join('') : '<div class="empty">아직 질문한 기록이 없어요</div>'}`;
+}
+
+// ---------- 계정 ----------
+function renderAccounts(view) {
+  const arr = filtered(state.students);
+  document.getElementById('count').textContent = `${arr.length}명`;
+  view.innerHTML = arr.length ? `
+    <table>
+      <tr><th>학번</th><th>이름</th><th>마지막 로그인</th><th></th></tr>
+      ${arr.map(s => `<tr>
+        <td>${esc(s.sid)}</td><td>${esc(s.name)}</td><td>${fmt(s.updatedAt)}</td>
+        <td><button class="ghost" onclick="renameStudent('${esc(s.sid)}')">이름 고치기</button></td>
+      </tr>`).join('')}
+    </table>
+    <p style="font-size:12.5px; color:var(--muted); margin-top:10px;">학생이 처음 들어올 때 이름을 잘못 쳤다면 여기서 고쳐주세요. 고친 이름으로 다시 들어오면 돼요.</p>` : '<div class="empty">아직 로그인한 학생이 없어요</div>';
+}
+async function renameStudent(sid) {
+  const s = state.students.find(x => x.sid === sid);
+  const name = prompt(`${sid} 학생의 이름을 무엇으로 고칠까요?`, s ? s.name : '');
+  if (!name || !name.trim()) return;
+  const n = name.trim();
+  await db.collection('artclass_students').doc(sid).update({ name: n });
+  // 이미 저장된 작업에 적힌 이름도 같이 고침
+  const esc_ = db.collection('artclass_escape').doc(sid), int_ = db.collection('artclass_interview').doc(sid);
+  if ((await esc_.get()).exists) await esc_.update({ name: n, 'data.maker': `${sid} ${n}` });
+  if ((await int_.get()).exists) await int_.update({ name: n });
+}
+
+function lightbox(src) {
+  const box = document.createElement('div');
+  box.className = 'lightbox';
+  box.innerHTML = `<img src="${esc(src)}">`;
+  box.onclick = () => box.remove();
+  document.body.appendChild(box);
+}
+
+try { if (sessionStorage.getItem('artclassTeacher') === '1') start(); } catch {}
+</script>
+</body>
+</html>

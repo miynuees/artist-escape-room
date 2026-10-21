@@ -290,23 +290,35 @@ function escapeDetail(x) {
 
 // ---------- 인터뷰 ----------
 function qCount(msgs) { return (msgs || []).filter(m => m.role === 'user').length; }
+// 학생이 '대화 지우기'로 지운 대화 (작가별, 오래된 순)
+function archivesOf(x, k) {
+  return Object.values(x.archive || {}).filter(a => a.artist === k).sort((a, b) => a.at - b.at);
+}
+function totalQ(x, k) {
+  return qCount((x.chats || {})[k]) + archivesOf(x, k).reduce((s, a) => s + qCount(a.msgs), 0);
+}
 function interviewMeta(x) {
-  const chats = x.chats || {};
-  const parts = Object.keys(ARTISTS).filter(k => qCount(chats[k]) > 0).map(k => `${ARTISTS[k].emoji}${qCount(chats[k])}`);
+  const parts = Object.keys(ARTISTS).filter(k => totalQ(x, k) > 0).map(k => `${ARTISTS[k].emoji}${totalQ(x, k)}`);
   return `${parts.join(' ') || '질문 없음'} · ${fmt(x.updatedAt)}`;
+}
+function chatHtml(msgs) {
+  return `<div class="chat">${msgs.map(m => `<div class="msg ${esc(m.role)}">${esc(m.content)}</div>`).join('')}</div>`;
 }
 function interviewDetail(x) {
   const chats = x.chats || {};
-  const used = Object.keys(ARTISTS).filter(k => qCount(chats[k]) > 0);
+  const used = Object.keys(ARTISTS).filter(k => totalQ(x, k) > 0);
   return `
     <div class="head">
       <h2>🎨 ${esc(x.sid)} ${esc(x.name)}</h2>
-      <span class="pill">질문 ${used.reduce((s, k) => s + qCount(chats[k]), 0)}개</span>
+      <span class="pill">질문 ${used.reduce((s, k) => s + totalQ(x, k), 0)}개</span>
     </div>
     ${used.length ? used.map(k => `
       <div class="artist-block">
-        <h3>${ARTISTS[k].emoji} ${ARTISTS[k].name} <span class="pill">질문 ${qCount(chats[k])}개</span></h3>
-        <div class="chat">${chats[k].map(m => `<div class="msg ${esc(m.role)}">${esc(m.content)}</div>`).join('')}</div>
+        <h3>${ARTISTS[k].emoji} ${ARTISTS[k].name} <span class="pill">질문 ${totalQ(x, k)}개</span></h3>
+        ${archivesOf(x, k).map(a => `
+          <div style="font-size:12px; color:var(--muted); margin:8px 0 4px;">🗑️ 학생이 지운 대화 · ${fmt(a.at)}</div>
+          <div style="opacity:.75;">${chatHtml(a.msgs || [])}</div>`).join('')}
+        ${qCount(chats[k]) > 0 ? `${archivesOf(x, k).length ? '<div style="font-size:12px; color:var(--muted); margin:8px 0 4px;">💬 지금 대화</div>' : ''}${chatHtml(chats[k])}` : ''}
       </div>`).join('') : '<div class="empty">아직 질문한 기록이 없어요</div>'}`;
 }
 

@@ -1051,6 +1051,9 @@ function renderLanding() {
             }, `${p.emoji} ${p.name.split(' ').pop()} 예시`);
           })
         ),
+        el('div', { style: 'margin-top:12px;' },
+          el('a', { href: 'examples.html', target: '_blank', style: 'font-size:13px; color:#a07a10;' }, '📄 예시를 한 문서로 보기 (활동지 참고용)'),
+        ),
       ),
     ),
     renderFooter(),

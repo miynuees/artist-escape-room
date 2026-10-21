@@ -6,6 +6,7 @@
 <title>작가 방탈출 · 선생님</title>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/qr-code-styling@1.5.0/lib/qr-code-styling.js"></script>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Gaegu:wght@400;700&family=Noto+Sans+KR:wght@300;400;500;700&display=swap');
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -79,6 +80,27 @@ table { width: 100%; border-collapse: collapse; font-size: 14px; background: var
 th, td { padding: 10px 14px; text-align: left; border-bottom: 1px solid var(--line); }
 th { background: #eef6e4; color: var(--main-d); font-size: 13px; }
 
+/* QR 인쇄 (화면에선 숨김) */
+#printArea { display: none; }
+.print-busy { position: fixed; inset: 0; background: rgba(255,255,255,.85); display: flex; align-items: center; justify-content: center; z-index: 100; font-size: 18px; color: var(--main-d); font-weight: 700; }
+@page { size: A4; margin: 12mm; }
+@media print {
+  body { background: #fff; padding: 0; }
+  body > *:not(#printArea) { display: none !important; }
+  #printArea { display: block; }
+  .pp { break-after: page; font-family: 'Noto Sans KR', sans-serif; color: #222; }
+  .pp:last-child { break-after: auto; }
+  .pp-head { display: flex; justify-content: space-between; align-items: flex-end; border-bottom: 2px solid #333; padding-bottom: 6px; margin-bottom: 8mm; }
+  .pp-head .t { font-size: 20pt; font-weight: 700; }
+  .pp-head .m { font-size: 12pt; text-align: right; }
+  .pp-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0; }
+  .pp-cell { border: 1.5px dashed #999; padding: 6mm 4mm; text-align: center; }
+  .pp-cell .lb { font-size: 16pt; font-weight: 700; margin-bottom: 1mm; }
+  .pp-cell .sub { font-size: 9pt; color: #555; margin-bottom: 3mm; }
+  .pp-cell img.pq { width: 62mm; height: 62mm; display: block; margin: 0 auto; }
+  .pp-foot { margin-top: 6mm; font-size: 10pt; color: #555; text-align: center; }
+}
+
 .lightbox { position: fixed; inset: 0; background: rgba(0,0,0,.85); display: flex; align-items: center; justify-content: center; z-index: 99; cursor: zoom-out; padding: 20px; }
 .lightbox img { max-width: 100%; max-height: 100%; border-radius: 8px; }
 </style>
@@ -106,9 +128,12 @@ th { background: #eef6e4; color: var(--main-d); font-size: 13px; }
     <select id="classSel" onchange="render()"><option value="">전체 반</option></select>
     <input id="search" placeholder="학번·이름 검색" oninput="render()">
     <span class="count" id="count"></span>
+    <button id="bulkPrint" class="ghost" onclick="printFiltered()">🖨️ 보이는 학생 QR 모아 인쇄</button>
   </div>
   <div id="view"></div>
 </div>
+
+<div id="printArea"></div>
 
 <script>
 const firebaseConfig = {
@@ -133,7 +158,7 @@ const PLAY_BASE = new URL('./', location.href).href;
 
 const state = { tab: 'escape', escape: [], interview: [], students: [], responses: {}, sel: null };
 const hasQR = x => !!(x.published || x.eid);
-const playUrl = x => x.published ? `${PLAY_BASE}?mode=play&s=${encodeURIComponent(x.sid)}&n=0` : `${PLAY_BASE}?mode=play&eid=${encodeURIComponent(x.eid)}&n=0`;
+const playUrl = (x, n = 0) => x.published ? `${PLAY_BASE}?mode=play&s=${encodeURIComponent(x.sid)}&n=${n}` : `${PLAY_BASE}?mode=play&eid=${encodeURIComponent(x.eid)}&n=${n}`;
 
 function esc(s) { return String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
 function fmt(ts) {
@@ -192,6 +217,11 @@ function filtered(arr) {
 
 function render() {
   const view = document.getElementById('view');
+  const bp = document.getElementById('bulkPrint');
+  if (state.tab === 'escape') {
+    const n = filtered(state.escape).filter(hasQR).length;
+    bp.classList.remove('hidden'); bp.textContent = `🖨️ 보이는 학생 QR 모아 인쇄 (${n}명)`; bp.disabled = !n;
+  } else bp.classList.add('hidden');
   if (state.tab === 'accounts') return renderAccounts(view);
   const arr = filtered(state.tab === 'escape' ? state.escape : state.interview);
   document.getElementById('count').textContent = `${arr.length}명`;
@@ -233,7 +263,8 @@ function escapeDetail(x) {
       <span class="pill">${esc(a.name)}</span>
       <span class="pill ${filledCount(d) === 5 ? '' : 'gray'}">${filledCount(d)}/5칸</span>
       ${hasQR(x)
-        ? `<a href="${esc(playUrl(x))}" target="_blank"><button class="ghost">👁️ 체험해보기</button></a>`
+        ? `<a href="${esc(playUrl(x))}" target="_blank"><button class="ghost">👁️ 체험해보기</button></a>
+           <button onclick="printOne('${esc(x.sid)}')">🖨️ QR 인쇄</button>`
         : '<span class="pill gray">QR 아직 안 만듦</span>'}
     </div>
     ${ROOM_TAGS.map((tag, i) => {
@@ -303,6 +334,73 @@ async function renameStudent(sid) {
   const esc_ = db.collection('artclass_escape').doc(sid), int_ = db.collection('artclass_interview').doc(sid);
   if ((await esc_.get()).exists) await esc_.update({ name: n, 'data.maker': `${sid} ${n}` });
   if ((await int_.get()).exists) await int_.update({ name: n });
+}
+
+// ---------- QR 인쇄: 학생 한 명당 A4 한 장 (QR 4장) ----------
+const QR_LABELS = ['시작방', '1번 문제', '2번 문제', '3번 문제'];
+function printOne(sid) {
+  const x = state.escape.find(e => e.sid === sid);
+  if (x) printQRPages([x]);
+}
+function printFiltered() {
+  const list = filtered(state.escape).filter(hasQR);
+  if (!list.length) return;
+  const skipped = filtered(state.escape).length - list.length;
+  if (!confirm(`${list.length}명의 QR을 한 사람당 한 장씩 인쇄할까요?` +
+    (skipped ? `\n(아직 "QR 생성"을 누르지 않은 ${skipped}명은 빠져요)` : ''))) return;
+  printQRPages(list);
+}
+async function printQRPages(list) {
+  if (!window.QRCodeStyling) { alert('QR 도구를 불러오지 못했어요. 새로고침 후 다시 해주세요.'); return; }
+  const busy = document.createElement('div');
+  busy.className = 'print-busy'; busy.textContent = 'QR 준비 중...';
+  document.body.appendChild(busy);
+  const area = document.getElementById('printArea');
+  area.innerHTML = list.map((x, i) => {
+    const d = x.published || x.data || {};
+    const a = ARTISTS[d.artist] || { name: '' };
+    const rooms = d.rooms || [];
+    return `<div class="pp">
+      <div class="pp-head">
+        <div class="t">${esc(d.title || '(제목 없음)')}</div>
+        <div class="m">${esc(x.sid)} ${esc(x.name)}<br>${esc(a.name)}</div>
+      </div>
+      <div class="pp-grid">${QR_LABELS.map((lb, n) => `
+        <div class="pp-cell">
+          <div class="lb">${lb}</div>
+          <div class="sub">${rooms[n] && rooms[n].name && rooms[n].name !== lb ? esc(rooms[n].name) : '&nbsp;'}</div>
+          <div id="pq-${i}-${n}"></div>
+        </div>`).join('')}
+      </div>
+      <div class="pp-foot">점선을 따라 잘라 미니어처의 각 자리에 붙이세요. 마지막방은 QR이 없어요. 3번 문제를 맞히면 이어져요.</div>
+    </div>`;
+  }).join('');
+  // QR은 하나씩 이미지로 완성한 뒤 붙임 (숨긴 영역에 바로 그리면 빈 그림이 되는 문제)
+  try {
+    for (let i = 0; i < list.length; i++) {
+      for (let n = 0; n < 4; n++) {
+        busy.textContent = `QR 준비 중... (${i + 1}/${list.length}명)`;
+        const qr = new QRCodeStyling({
+          // 인쇄용은 반듯한 네모 모양 (작게 뽑아도 잘 읽히게)
+          width: 600, height: 600, type: 'canvas', data: playUrl(list[i], n), margin: 12,
+          qrOptions: { errorCorrectionLevel: 'M' },
+          dotsOptions: { color: '#000000', type: 'square' },
+          cornersSquareOptions: { color: '#000000', type: 'square' },
+          cornersDotOptions: { color: '#000000', type: 'square' },
+          backgroundOptions: { color: '#ffffff' },
+        });
+        const blob = await qr.getRawData('png');
+        const img = new Image();
+        img.src = await new Promise(r => { const fr = new FileReader(); fr.onload = () => r(fr.result); fr.readAsDataURL(blob); });
+        img.className = 'pq';
+        document.getElementById(`pq-${i}-${n}`).appendChild(img);
+      }
+    }
+  } catch (e) {
+    busy.remove(); alert('QR을 만들지 못했어요. 새로고침 후 다시 해주세요.'); return;
+  }
+  busy.remove();
+  window.print();
 }
 
 function lightbox(src) {

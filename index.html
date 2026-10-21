@@ -136,6 +136,7 @@ label {
 }
 
 .hidden { display: none !important; }
+.login-err:not(:empty) { background: #fdecea; border-radius: 10px; padding: 10px 12px; }
 
 /* ========== 헤더 ========== */
 .app-header {
@@ -901,15 +902,17 @@ function renderLogin() {
   setTheme('gogh');
   const app = $('#app');
   app.innerHTML = '';
-  const err = el('div', { style: 'color:#c04040; font-size:13px; min-height:20px; margin-top:8px;' });
+  const err = el('div', { class: 'login-err', style: 'color:#c04040; font-size:14px; font-weight:700; margin-top:10px;' });
   const sid = el('input', { type: 'text', inputmode: 'numeric', placeholder: '예) 20201' });
   const name = el('input', { type: 'text', placeholder: '이름', onkeydown: (e) => { if (e.key === 'Enter') go(); } });
   const btn = el('button', { style: 'width:100%; margin-top:6px;', onclick: () => go() }, '들어가기');
   async function go() {
-    const s = sid.value.trim(), n = name.value.trim();
-    if (!/^\d{4,6}$/.test(s)) { err.textContent = '학번을 숫자로 넣어주세요.'; return; }
+    // 학번은 숫자만, 이름은 띄어쓰기 없이 (예술가 인터뷰와 똑같이)
+    const s = sid.value.replace(/\D/g, ''), n = name.value.replace(/\s/g, '');
+    if (!/^\d{4,6}$/.test(s)) { err.textContent = '학번을 숫자 5자리로 넣어주세요. (예: 20201)'; return; }
     if (!n) { err.textContent = '이름을 넣어주세요.'; return; }
-    btn.disabled = true; err.textContent = '';
+    if (!db) { err.textContent = '학교 인터넷에서 저장소에 연결하지 못했어요. 새로고침(Ctrl+F5) 후 다시 해보고, 계속 안 되면 선생님께 말해주세요.'; return; }
+    btn.disabled = true; btn.textContent = '들어가는 중...'; err.textContent = '';
     try {
       const ref = db.collection('artclass_students').doc(s);
       const snap = await ref.get();
@@ -923,7 +926,7 @@ function renderLogin() {
       renderLanding();
     } catch (e) {
       err.textContent = '연결에 실패했어요. 인터넷을 확인해주세요.';
-    } finally { btn.disabled = false; }
+    } finally { btn.disabled = false; btn.textContent = '들어가기'; }
   }
   app.appendChild(el('div', { class: 'container' },
     el('div', { class: 'card', style: 'max-width:420px; margin:40px auto;' },
@@ -1428,7 +1431,7 @@ async function renderQRView() {
       ),
     ),
     el('div', { class: 'help-strip no-print' },
-      '💡 각 QR을 출력해서 해당 방 위치에 붙이세요. 마지막방은 QR이 없어요. 3번 문제를 맞히면 바로 이어져요. QR을 붙인 뒤에 내용을 고쳐도 QR은 그대로 쓰면 돼요. 고친 내용은 자동으로 반영돼요.'
+      '💡 각 QR을 출력해서 해당 방 위치에 붙이세요. 직접 인쇄하기 어려우면 선생님이 모아서 뽑아주실 수 있어요. 마지막방은 QR이 없어요. 3번 문제를 맞히면 바로 이어져요. QR을 붙인 뒤에 내용을 고쳐도 QR은 그대로 쓰면 돼요. 고친 내용은 자동으로 반영돼요.'
     ),
     el('div', { class: 'qr-grid' },
       ...QR_ROOMS.map(rc => {
@@ -1462,11 +1465,11 @@ async function renderQRView() {
         width: 540, height: 540,
         type: 'canvas',
         data: url,
-        margin: 8,
+        margin: 12,
         qrOptions: { errorCorrectionLevel: 'M' },
-        dotsOptions: { color: '#2a2a2a', type: 'dots' },
-        cornersSquareOptions: { color: '#2a2a2a', type: 'extra-rounded' },
-        cornersDotOptions: { color: '#2a2a2a', type: 'dot' },
+        dotsOptions: { color: '#000000', type: 'square' }, // 반듯한 네모가 인쇄했을 때 가장 잘 읽힘
+        cornersSquareOptions: { color: '#000000', type: 'square' },
+        cornersDotOptions: { color: '#000000', type: 'square' },
         backgroundOptions: { color: '#ffffff' },
       });
       qr.append(box);

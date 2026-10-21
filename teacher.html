@@ -131,7 +131,9 @@ const ARTISTS = {
 const ROOM_TAGS = ['🌀 시작방', '🔍 1번 문제', '❓ 2번 문제', '⚡ 3번 문제', '🎭 마지막방'];
 const PLAY_BASE = new URL('./', location.href).href;
 
-const state = { tab: 'escape', escape: [], interview: [], students: [], sel: null };
+const state = { tab: 'escape', escape: [], interview: [], students: [], responses: {}, sel: null };
+const hasQR = x => !!(x.published || x.eid);
+const playUrl = x => x.published ? `${PLAY_BASE}?mode=play&s=${encodeURIComponent(x.sid)}&n=0` : `${PLAY_BASE}?mode=play&eid=${encodeURIComponent(x.eid)}&n=0`;
 
 function esc(s) { return String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
 function fmt(ts) {
@@ -160,6 +162,12 @@ function start() {
   const sortBySid = arr => arr.sort((a, b) => String(a.sid).localeCompare(String(b.sid)));
   db.collection('artclass_escape').onSnapshot(snap => { state.escape = sortBySid(snap.docs.map(d => d.data())); refreshClasses(); render(); });
   db.collection('artclass_interview').onSnapshot(snap => { state.interview = sortBySid(snap.docs.map(d => d.data())); refreshClasses(); render(); });
+  db.collection('artclass_responses').onSnapshot(snap => {
+    const by = {};
+    snap.docs.forEach(d => { const r = d.data(); (by[r.key] = by[r.key] || []).push(r); });
+    Object.values(by).forEach(a => a.sort((x, y) => x.at - y.at));
+    state.responses = by; render();
+  });
   db.collection('artclass_students').onSnapshot(snap => { state.students = sortBySid(snap.docs.map(d => d.data())); refreshClasses(); render(); });
 }
 
@@ -211,7 +219,7 @@ function filledCount(d) {
 function escapeMeta(x) {
   const d = x.data || {};
   const a = ARTISTS[d.artist];
-  return `${a ? a.emoji + ' ' : ''}${esc(d.title || '(제목 없음)')} · ${filledCount(d)}/5칸 ${x.eid ? '· QR ✅' : ''} · ${fmt(x.updatedAt)}`;
+  return `${a ? a.emoji + ' ' : ''}${esc(d.title || '(제목 없음)')} · ${filledCount(d)}/5칸 ${hasQR(x) ? '· QR ✅' : ''} · ${fmt(x.updatedAt)}`;
 }
 function escapeDetail(x) {
   const d = x.data || {};
@@ -224,8 +232,8 @@ function escapeDetail(x) {
       <span class="pill">${esc(x.sid)} ${esc(x.name)}</span>
       <span class="pill">${esc(a.name)}</span>
       <span class="pill ${filledCount(d) === 5 ? '' : 'gray'}">${filledCount(d)}/5칸</span>
-      ${x.eid
-        ? `<button class="ghost" onclick="window.open('${PLAY_BASE}?mode=play&eid=${esc(x.eid)}&n=0','_blank')">👁️ 체험해보기</button>`
+      ${hasQR(x)
+        ? `<a href="${esc(playUrl(x))}" target="_blank"><button class="ghost">👁️ 체험해보기</button></a>`
         : '<span class="pill gray">QR 아직 안 만듦</span>'}
     </div>
     ${ROOM_TAGS.map((tag, i) => {
@@ -238,6 +246,14 @@ function escapeDetail(x) {
         ${i === 4 ? row('마지막 질문', r.question) : ''}
       </div>`;
     }).join('')}
+    ${(() => {
+      const res = [...(state.responses[x.sid] || []), ...(x.eid ? state.responses[x.eid] || [] : [])];
+      return `<div class="room">
+        <div class="tag">💫 체험한 친구들이 마지막방에 남긴 답 (${res.length})</div>
+        ${res.length ? res.map(r => `<div class="row"><div class="k">${fmt(r.at)}</div><div class="v">${esc(r.t)}</div></div>`).join('')
+          : '<div class="row"><div class="k"></div><div class="v"><span class="blank">아직 없어요</span></div></div>'}
+      </div>`;
+    })()}
     <div style="font-size:12px; color:var(--muted); text-align:right;">마지막 저장 ${fmt(x.updatedAt)}</div>`;
 }
 

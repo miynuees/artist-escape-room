@@ -49,6 +49,9 @@ input, select { font-family: inherit; padding: 9px 12px; border: 1.5px solid #d4
 .item.on { background: #eef6e4; border-color: var(--main); }
 .item .who { font-weight: 700; font-size: 14px; }
 .item .meta { font-size: 12px; color: var(--muted); }
+.grp { display: inline-flex; gap: 3px; margin-left: 6px; vertical-align: middle; }
+.grp button { padding: 1px 7px; font-size: 11px; border-radius: 6px; background: #fff; color: var(--muted); border: 1px solid #ddd; box-shadow: none; }
+.grp button.on { background: var(--main); color: #fff; border-color: var(--main); }
 .empty { color: var(--muted); text-align: center; padding: 30px 10px; font-size: 14px; }
 .detail { background: var(--card); border-radius: 14px; padding: 22px 26px; box-shadow: 0 4px 16px rgba(120,160,90,.1); min-height: 300px; }
 .detail .head { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; padding-bottom: 12px; margin-bottom: 14px; border-bottom: 2px dashed var(--line); }
@@ -119,13 +122,13 @@ th { background: #eef6e4; color: var(--main-d); font-size: 13px; }
   <div class="top">
     <h1>👩‍🏫 작가 방탈출 · 선생님 화면</h1>
     <div class="tabs">
-      <button class="tab on" data-tab="escape" onclick="setTab('escape')">🗺️ 방탈출 문제</button>
-      <button class="tab" data-tab="interview" onclick="setTab('interview')">🎨 예술가 인터뷰</button>
+      <button class="tab on" data-tab="interview" onclick="setTab('interview')">🎨 예술가 인터뷰</button>
+      <button class="tab" data-tab="escape" onclick="setTab('escape')">🗺️ 방탈출 문제</button>
       <button class="tab" data-tab="accounts" onclick="setTab('accounts')">👤 학생 계정</button>
     </div>
   </div>
   <div class="filters">
-    <select id="classSel" onchange="render()"><option value="">전체 반</option></select>
+    <select id="classSel" onchange="render()"><option value="">전체</option><option value="A">A반</option><option value="E">E반</option><option value="-">분반 안 정한 학생</option></select>
     <input id="search" placeholder="학번·이름 검색" oninput="render()">
     <span class="count" id="count"></span>
     <button id="bulkPrint" class="ghost" onclick="printFiltered()">🖨️ 보이는 학생 QR 모아 인쇄</button>
@@ -156,7 +159,7 @@ const ARTISTS = {
 const ROOM_TAGS = ['🌀 시작방', '🔍 1번 문제', '❓ 2번 문제', '⚡ 3번 문제', '🎭 마지막방'];
 const PLAY_BASE = new URL('./', location.href).href;
 
-const state = { tab: 'escape', escape: [], interview: [], students: [], responses: {}, sel: null };
+const state = { tab: 'interview', groups: {}, letterGroups: {}, escape: [], interview: [], students: [], responses: {}, sel: null };
 const hasQR = x => !!(x.published || x.eid);
 const playUrl = (x, n = 0) => x.published ? `${PLAY_BASE}?mode=play&s=${encodeURIComponent(x.sid)}&n=${n}` : `${PLAY_BASE}?mode=play&eid=${encodeURIComponent(x.eid)}&n=${n}`;
 
@@ -166,11 +169,23 @@ function fmt(ts) {
   const d = new Date(ts);
   return `${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
 }
-// 학번 20201 → "2학년 2반"
-function classOf(sid) {
-  const s = String(sid);
-  if (s.length === 5) return `${s[0]}학년 ${parseInt(s.slice(1, 3), 10)}반`;
-  return '기타';
+
+// 분반(A반·E반): 선생님이 정한 값 → 없으면 아트 레터 수업에서 정한 분반을 그대로 씀
+const GROUPS = ['A', 'E'];
+function groupOf(sid) {
+  const own = state.groups[sid];
+  if (own !== undefined) return own;   // '' = 선생님이 일부러 비워 둠
+  return state.letterGroups[sid] || '';
+}
+function setGroup(sid, g) {
+  const v = groupOf(sid) === g ? '' : g;   // 같은 걸 또 누르면 해제
+  db.collection('artclass_settings').doc('groups').set({ map: { [sid]: v } }, { merge: true })
+    .catch(e => { console.error(e); alert('분반을 저장하지 못했어요'); });
+}
+function groupBtns(sid) {
+  const g = groupOf(sid);
+  return `<span class="grp" onclick="event.stopPropagation()">${GROUPS.map(x =>
+    `<button class="${g === x ? 'on' : ''}" onclick="setGroup('${esc(sid)}','${x}')">${x}</button>`).join('')}</span>`;
 }
 
 function unlock() {
@@ -185,22 +200,17 @@ function start() {
   document.getElementById('lock').classList.add('hidden');
   document.getElementById('main').classList.remove('hidden');
   const sortBySid = arr => arr.sort((a, b) => String(a.sid).localeCompare(String(b.sid)));
-  db.collection('artclass_escape').onSnapshot(snap => { state.escape = sortBySid(snap.docs.map(d => d.data())); refreshClasses(); render(); });
-  db.collection('artclass_interview').onSnapshot(snap => { state.interview = sortBySid(snap.docs.map(d => d.data())); refreshClasses(); render(); });
+  db.collection('artclass_escape').onSnapshot(snap => { state.escape = sortBySid(snap.docs.map(d => d.data())); render(); });
+  db.collection('artclass_interview').onSnapshot(snap => { state.interview = sortBySid(snap.docs.map(d => d.data())); render(); });
   db.collection('artclass_responses').onSnapshot(snap => {
     const by = {};
     snap.docs.forEach(d => { const r = d.data(); (by[r.key] = by[r.key] || []).push(r); });
     Object.values(by).forEach(a => a.sort((x, y) => x.at - y.at));
     state.responses = by; render();
   });
-  db.collection('artclass_students').onSnapshot(snap => { state.students = sortBySid(snap.docs.map(d => d.data())); refreshClasses(); render(); });
-}
-
-function refreshClasses() {
-  const sel = document.getElementById('classSel');
-  const cur = sel.value;
-  const all = new Set([...state.students, ...state.escape, ...state.interview].map(x => classOf(x.sid)));
-  sel.innerHTML = '<option value="">전체 반</option>' + [...all].sort().map(c => `<option ${c === cur ? 'selected' : ''}>${c}</option>`).join('');
+  db.collection('artclass_students').onSnapshot(snap => { state.students = sortBySid(snap.docs.map(d => d.data())); render(); });
+  db.collection('artclass_settings').doc('groups').onSnapshot(d => { state.groups = (d.exists && d.data().map) || {}; render(); });
+  db.collection('art_letter_settings').doc('groups').onSnapshot(d => { state.letterGroups = (d.exists && d.data().map) || {}; render(); });
 }
 
 function setTab(t) {
@@ -212,7 +222,7 @@ function setTab(t) {
 function filtered(arr) {
   const c = document.getElementById('classSel').value;
   const q = document.getElementById('search').value.trim();
-  return arr.filter(x => (!c || classOf(x.sid) === c) && (!q || String(x.sid).includes(q) || (x.name || '').includes(q)));
+  return arr.filter(x => (!c || groupOf(x.sid) === (c === '-' ? '' : c)) && (!q || String(x.sid).includes(q) || (x.name || '').includes(q)));
 }
 
 function render() {
@@ -223,7 +233,7 @@ function render() {
     bp.classList.remove('hidden'); bp.textContent = `🖨️ 보이는 학생 QR 모아 인쇄 (${n}명)`; bp.disabled = !n;
   } else bp.classList.add('hidden');
   if (state.tab === 'accounts') return renderAccounts(view);
-  const arr = filtered(state.tab === 'escape' ? state.escape : state.interview);
+  const arr = filtered(state.tab === 'escape' ? state.escape : withLoggedIn(state.interview));
   document.getElementById('count').textContent = `${arr.length}명`;
   if (state.sel && !arr.find(x => x.sid === state.sel)) state.sel = null;
   if (!state.sel && arr.length) state.sel = arr[0].sid;
@@ -233,7 +243,7 @@ function render() {
     <div class="layout">
       <div class="list">${arr.length ? arr.map(x => `
         <div class="item ${x.sid === state.sel ? 'on' : ''}" onclick="state.sel='${esc(x.sid)}'; render();">
-          <div class="who">${esc(x.sid)} ${esc(x.name)}</div>
+          <div class="who">${esc(x.sid)} ${esc(x.name)}${groupBtns(x.sid)}</div>
           <div class="meta">${state.tab === 'escape' ? escapeMeta(x) : interviewMeta(x)}</div>
         </div>`).join('') : '<div class="empty">아직 아무도 없어요</div>'}
       </div>
@@ -297,7 +307,14 @@ function archivesOf(x, k) {
 function totalQ(x, k) {
   return qCount((x.chats || {})[k]) + archivesOf(x, k).reduce((s, a) => s + qCount(a.msgs), 0);
 }
+// 로그인만 하고 아직 작가를 안 고른 학생도 목록에 보이게
+function withLoggedIn(arr) {
+  const has = new Set(arr.map(x => x.sid));
+  const extra = state.students.filter(s => !has.has(s.sid)).map(s => ({ ...s, loginOnly: true }));
+  return [...arr, ...extra].sort((a, b) => String(a.sid).localeCompare(String(b.sid)));
+}
 function interviewMeta(x) {
+  if (x.loginOnly) return `로그인만 함 · 아직 대화 전 · ${fmt(x.updatedAt)}`;
   const parts = Object.keys(ARTISTS).filter(k => totalQ(x, k) > 0).map(k => `${ARTISTS[k].emoji}${totalQ(x, k)}`);
   return `${parts.join(' ') || '질문 없음'} · ${fmt(x.updatedAt)}`;
 }
@@ -328,13 +345,13 @@ function renderAccounts(view) {
   document.getElementById('count').textContent = `${arr.length}명`;
   view.innerHTML = arr.length ? `
     <table>
-      <tr><th>학번</th><th>이름</th><th>마지막 로그인</th><th></th></tr>
+      <tr><th>학번</th><th>이름</th><th>분반</th><th>마지막 로그인</th><th></th></tr>
       ${arr.map(s => `<tr>
-        <td>${esc(s.sid)}</td><td>${esc(s.name)}</td><td>${fmt(s.updatedAt)}</td>
+        <td>${esc(s.sid)}</td><td>${esc(s.name)}</td><td>${groupBtns(s.sid)}</td><td>${fmt(s.updatedAt)}</td>
         <td><button class="ghost" onclick="renameStudent('${esc(s.sid)}')">이름 고치기</button></td>
       </tr>`).join('')}
     </table>
-    <p style="font-size:12.5px; color:var(--muted); margin-top:10px;">학생이 처음 들어올 때 이름을 잘못 쳤다면 여기서 고쳐주세요. 고친 이름으로 다시 들어오면 돼요.</p>` : '<div class="empty">아직 로그인한 학생이 없어요</div>';
+    <p style="font-size:12.5px; color:var(--muted); margin-top:10px;">분반은 A/E를 눌러 정해요(같은 걸 또 누르면 해제). 아트 레터에서 정한 분반이 있으면 처음부터 그대로 들어가 있어요. 학생이 처음 들어올 때 이름을 잘못 쳤다면 여기서 고쳐주세요. 고친 이름으로 다시 들어오면 돼요.</p>` : '<div class="empty">아직 로그인한 학생이 없어요</div>';
 }
 async function renameStudent(sid) {
   const s = state.students.find(x => x.sid === sid);

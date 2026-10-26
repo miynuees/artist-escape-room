@@ -348,11 +348,32 @@ function renderAccounts(view) {
       <tr><th>학번</th><th>이름</th><th>분반</th><th>마지막 로그인</th><th></th></tr>
       ${arr.map(s => `<tr>
         <td>${esc(s.sid)}</td><td>${esc(s.name)}</td><td>${groupBtns(s.sid)}</td><td>${fmt(s.updatedAt)}</td>
-        <td><button class="ghost" onclick="renameStudent('${esc(s.sid)}')">이름 고치기</button></td>
+        <td><button class="ghost" onclick="renameStudent('${esc(s.sid)}')">이름 고치기</button>
+          <button class="ghost" style="color:#c04040; border-color:#e8b4b4;" onclick="deleteStudent('${esc(s.sid)}')">계정 삭제</button></td>
       </tr>`).join('')}
     </table>
-    <p style="font-size:12.5px; color:var(--muted); margin-top:10px;">분반은 A/E를 눌러 정해요(같은 걸 또 누르면 해제). 아트 레터에서 정한 분반이 있으면 처음부터 그대로 들어가 있어요. 학생이 처음 들어올 때 이름을 잘못 쳤다면 여기서 고쳐주세요. 고친 이름으로 다시 들어오면 돼요.</p>` : '<div class="empty">아직 로그인한 학생이 없어요</div>';
+    <p style="font-size:12.5px; color:var(--muted); margin-top:10px;">분반은 A/E를 눌러 정해요(같은 걸 또 누르면 해제). 아트 레터에서 정한 분반이 있으면 처음부터 그대로 들어가 있어요. 학생이 처음 들어올 때 이름을 잘못 쳤다면 여기서 고쳐주세요. 고친 이름으로 다시 들어오면 돼요. 계정 삭제는 인터뷰 대화·방탈출 문제·친구들이 남긴 답까지 모두 지워요(되돌릴 수 없음).</p>` : '<div class="empty">아직 로그인한 학생이 없어요</div>';
 }
+// 테스트 계정 정리용: 계정과 그 학생의 기록을 모두 지움
+async function deleteStudent(sid) {
+  const s = state.students.find(x => x.sid === sid);
+  const who = `${sid} ${s ? s.name : ''}`;
+  if (!confirm(`${who} 계정을 삭제할까요?
+인터뷰 대화·방탈출 문제·친구들이 남긴 답까지 모두 지워져요.`)) return;
+  if (!confirm(`정말 지울까요? 되돌릴 수 없어요.
+(${who})`)) return;
+  try {
+    const resp = await db.collection('artclass_responses').where('key', '==', sid).get();
+    await Promise.all([
+      ...resp.docs.map(d => d.ref.delete()),
+      db.collection('artclass_escape').doc(sid).delete(),
+      db.collection('artclass_interview').doc(sid).delete(),
+      db.collection('artclass_settings').doc('groups').set({ map: { [sid]: firebase.firestore.FieldValue.delete() } }, { merge: true }),
+    ]);
+    await db.collection('artclass_students').doc(sid).delete();
+  } catch (e) { console.error(e); alert('삭제하지 못했어요. 인터넷을 확인해주세요.'); }
+}
+
 async function renameStudent(sid) {
   const s = state.students.find(x => x.sid === sid);
   const name = prompt(`${sid} 학생의 이름을 무엇으로 고칠까요?`, s ? s.name : '');

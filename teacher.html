@@ -283,7 +283,7 @@ function escapeDetail(x) {
         <div class="tag">${tag}${r.name && !tag.endsWith(r.name) ? ' · ' + esc(r.name) : ''}</div>
         ${row(i === 0 ? '도입 이야기' : '방 설명', r.story)}
         ${r.image ? `<div class="row"><div class="k">사진</div><div class="v"><img src="${esc(r.image)}" onclick="lightbox(this.src)"></div></div>` : ''}
-        ${i >= 1 && i <= 3 ? row('문제', r.question) + row('정답', r.answer, 'ans') + row('힌트', r.hint) + row('정답 문구', r.success) : ''}
+        ${i >= 1 && i <= 3 ? row('문제', r.question) + row('정답', r.answer, 'ans') + row('힌트', r.hint) + row('정답 문구', r.success) + (r.successImage ? `<div class="row"><div class="k">정답 사진</div><div class="v"><img src="${esc(r.successImage)}" onclick="lightbox(this.src)"></div></div>` : '') : ''}
         ${i === 4 ? row('마지막 질문', r.question) : ''}
       </div>`;
     }).join('')}
@@ -386,8 +386,10 @@ async function renameStudent(sid) {
   if ((await int_.get()).exists) await int_.update({ name: n });
 }
 
-// ---------- QR 인쇄: 학생 한 명당 A4 한 장 (QR 4장) ----------
-const QR_LABELS = ['시작방', '1번 문제', '2번 문제', '3번 문제'];
+// ---------- QR 인쇄: 학생 한 명당 A4 한 장 (QR 3장, 시작방은 1번에 합쳐짐) ----------
+// 시작방은 1번 QR에 합쳐짐 → QR 3장 (주소의 n은 1·2·3)
+const QR_ROOMS = [1, 2, 3];
+const QR_LABELS = ['1번 문제 · 입구', '2번 문제', '3번 문제'];
 function printOne(sid) {
   const x = state.escape.find(e => e.sid === sid);
   if (x) printQRPages([x]);
@@ -415,20 +417,20 @@ async function printQRPages(list) {
         <div class="t">${esc(d.title || '(제목 없음)')}</div>
         <div class="m">${esc(x.sid)} ${esc(x.name)}<br>${esc(a.name)}</div>
       </div>
-      <div class="pp-grid">${QR_LABELS.map((lb, n) => `
+      <div class="pp-grid">${QR_ROOMS.map((n, k) => { const lb = QR_LABELS[k]; return `
         <div class="pp-cell">
           <div class="lb">${lb}</div>
-          <div class="sub">${rooms[n] && rooms[n].name && rooms[n].name !== lb ? esc(rooms[n].name) : '&nbsp;'}</div>
+          <div class="sub">${rooms[n] && rooms[n].name && !lb.startsWith(rooms[n].name) ? esc(rooms[n].name) : '&nbsp;'}</div>
           <div id="pq-${i}-${n}"></div>
-        </div>`).join('')}
+        </div>`; }).join('')}
       </div>
-      <div class="pp-foot">점선을 따라 잘라 미니어처의 각 자리에 붙이세요. 마지막방은 QR이 없어요. 3번 문제를 맞히면 이어져요.</div>
+      <div class="pp-foot">점선을 따라 잘라 미니어처의 각 자리에 붙이세요. 1번 QR은 입구에 — 시작방 이야기가 먼저 나와요. 마지막방은 QR이 없어요. 3번 문제를 맞히면 이어져요.</div>
     </div>`;
   }).join('');
   // QR은 하나씩 이미지로 완성한 뒤 붙임 (숨긴 영역에 바로 그리면 빈 그림이 되는 문제)
   try {
     for (let i = 0; i < list.length; i++) {
-      for (let n = 0; n < 4; n++) {
+      for (const n of QR_ROOMS) {
         busy.textContent = `QR 준비 중... (${i + 1}/${list.length}명)`;
         const qr = new QRCodeStyling({
           // 인쇄용은 반듯한 네모 모양 (작게 뽑아도 잘 읽히게)

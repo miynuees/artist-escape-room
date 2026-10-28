@@ -686,9 +686,10 @@ const ARTIST_PRESETS = {
 // 학생이 직접 선택할 수 있는 작가 (예시 전용 작가는 제외)
 const SELECTABLE_ARTISTS = ['gogh', 'frida', 'picasso', 'paik', 'warhol'];
 
-// 개인별 제작: 시작방 + 문제 3개 (QR 4장) → 3번 문제를 맞히면 마지막방이 자동으로 열림 (QR 없음)
+// 개인별 제작: 시작방 + 문제 3개 (QR 3장) → 1번 QR에서 시작방 이야기가 먼저 나오고, 3번 문제를 맞히면 마지막방이 자동으로 열림
+// (예전에 인쇄한 시작방 QR n=0도 그대로 작동)
 const ROOM_CONFIG = [
-  { idx: 0, tag: '🌀 시작방', role: '체험자가 가장 먼저 보는 이야기', hasQ: false, hasQR: true },
+  { idx: 0, tag: '🌀 시작방', role: '1번 QR을 스캔하면 가장 먼저 보는 이야기', hasQ: false, hasQR: false },
   { idx: 1, tag: '🔍 1번 문제', role: '첫 번째 문제', hasQ: true, hasQR: true },
   { idx: 2, tag: '❓ 2번 문제', role: '두 번째 문제', hasQ: true, hasQR: true },
   { idx: 3, tag: '⚡ 3번 문제', role: '세 번째 문제 · 맞히면 마지막방이 열려요', hasQ: true, hasQR: true },
@@ -1152,7 +1153,7 @@ function renderBuilder() {
 
     escapeRoomData.isSample
       ? el('div', { class: 'help-strip', style: 'background:#fef5d0; border-left-color:#e8a838; color:#8a6a1a;', html: '🎨 <b>참고용 예시예요.</b> 읽기만 할 수 있어요. 살펴본 뒤 "처음으로"를 눌러 내 방탈출을 만들어 보세요.' })
-      : el('div', { class: 'help-strip', html: '💡 시작방 · 문제 3개 · 마지막방을 모두 채우면 오른쪽 위 <b>"QR 생성"</b> 버튼으로 넘어가세요. QR은 4장 나오고, 마지막방은 3번 문제를 맞히면 바로 이어져요. 작업은 자동 저장됩니다.' }),
+      : el('div', { class: 'help-strip', html: '💡 시작방 · 문제 3개 · 마지막방을 모두 채우면 오른쪽 위 <b>"QR 생성"</b> 버튼으로 넘어가세요. QR은 문제마다 1장씩 3장 나와요. 시작방은 1번 QR에서 먼저 보이고, 마지막방은 3번 문제를 맞히면 바로 이어져요. 작업은 자동 저장됩니다.' }),
 
     el('div', { class: 'builder-layout' },
       // 사이드 네비
@@ -1214,7 +1215,7 @@ function renderRoomForm(idx) {
       oninput: onInput('story'),
     }, room.story || ''),
     el('div', { class: 'help' },
-      config.idx === 0 ? '체험자가 ①번 QR을 스캔하면 가장 먼저 이 문장을 만나요. 플레이어의 역할(누구인지) + 첫 방의 분위기를 같이 담아주세요.' :
+      config.idx === 0 ? '체험자가 1번 QR을 스캔하면 가장 먼저 이 이야기를 만나요. "탐험 시작"을 누르면 1번 문제가 열려요. 플레이어의 역할(누구인지) + 첫 방의 분위기를 같이 담아주세요.' :
       config.isFinal ? '3번 문제를 맞히면 QR 없이 바로 이 방이 열려요.' :
       '공간 분위기, 연출 설명, 스토리 전환 문구 등'
     ),
@@ -1245,7 +1246,6 @@ function renderRoomForm(idx) {
           value: room.answer || '',
           oninput: onInput('answer'),
         }),
-        el('div', { class: 'help' }, '공백은 무시하고 비교해요. 예: "너를 사랑한다" 입력 = "너를사랑한다"도 정답 처리'),
       ),
       el('div', { class: 'field' },
         el('label', {}, '힌트 (선택)'),
@@ -1265,6 +1265,11 @@ function renderRoomForm(idx) {
         ROOM_CONFIG[idx + 1]?.isFinal
           ? el('div', { class: 'help' }, '이 문구 아래에 "마지막 방으로" 버튼이 나타나요.')
           : null,
+      ),
+      el('div', { class: 'field' },
+        el('label', {}, '📷 정답 맞힌 후 보여줄 사진 (선택)'),
+        renderImageField(room, 'successImage'),
+        el('div', { class: 'help' }, '정답을 맞혀야 볼 수 있는 사진이에요. 예: 문제에 나온 작품의 실제 사진, 숨겨둔 편지의 전체 모습'),
       ),
     );
   } else if (config.isFinal) {
@@ -1299,15 +1304,15 @@ function renderRoomForm(idx) {
 }
 
 // ==================== 이미지 업로드 필드 ====================
-function renderImageField(room) {
+function renderImageField(room, field = 'image') {
   const wrap = el('div', { class: 'image-field' });
 
   const renderInner = () => {
     wrap.innerHTML = '';
     const fileInputId = `file-${room.idx}-${Math.random().toString(36).slice(2,6)}`;
 
-    const status = el('span', { class: 'status' }, room.image ? '✅ 사진 첨부됨' : '아직 첨부 안 됨');
-    if (room.image) status.classList.add('ok');
+    const status = el('span', { class: 'status' }, room[field] ? '✅ 사진 첨부됨' : '아직 첨부 안 됨');
+    if (room[field]) status.classList.add('ok');
 
     const fileInput = el('input', {
       type: 'file', id: fileInputId, accept: 'image/*',
@@ -1323,7 +1328,7 @@ function renderImageField(room) {
         status.textContent = '⏳ 업로드 중...';
         try {
           const url = await uploadImage(file);
-          room.image = url;
+          room[field] = url;
           saveDraft();
           renderInner();
         } catch (err) {
@@ -1334,17 +1339,17 @@ function renderImageField(room) {
     });
 
     const label = el('label', { for: fileInputId, class: 'file-btn' },
-      room.image ? '📷 다른 사진으로 바꾸기' : '📷 사진 첨부'
+      room[field] ? '📷 다른 사진으로 바꾸기' : '📷 사진 첨부'
     );
 
     wrap.appendChild(el('div', { class: 'upload-row' }, label, fileInput, status));
 
-    if (room.image) {
+    if (room[field]) {
       wrap.appendChild(el('div', { class: 'preview' },
-        el('img', { src: room.image, alt: '연출 이미지' }),
+        el('img', { src: room[field], alt: '연출 이미지' }),
         el('button', {
           class: 'remove', title: '제거',
-          onclick: () => { room.image = ''; saveDraft(); renderInner(); },
+          onclick: () => { room[field] = ''; saveDraft(); renderInner(); },
         }, '×'),
       ));
     }
@@ -1353,8 +1358,8 @@ function renderImageField(room) {
     wrap.appendChild(el('input', {
       type: 'text', class: 'url-input',
       placeholder: '또는 이미지 URL 직접 붙여넣기 (선택)',
-      value: room.image || '',
-      oninput: (e) => { room.image = e.target.value.trim(); saveDraft(); },
+      value: room[field] || '',
+      oninput: (e) => { room[field] = e.target.value.trim(); saveDraft(); },
       onblur: () => renderInner(),
     }));
   };
@@ -1431,7 +1436,7 @@ async function renderQRView() {
       ),
     ),
     el('div', { class: 'help-strip no-print' },
-      '💡 각 QR을 출력해서 해당 방 위치에 붙이세요. 직접 인쇄하기 어려우면 선생님이 모아서 뽑아주실 수 있어요. 마지막방은 QR이 없어요. 3번 문제를 맞히면 바로 이어져요. QR을 붙인 뒤에 내용을 고쳐도 QR은 그대로 쓰면 돼요. 고친 내용은 자동으로 반영돼요.'
+      '💡 각 QR을 출력해서 해당 방 위치에 붙이세요. 1번 QR은 방탈출의 입구에 붙이면 좋아요. 시작방 이야기가 먼저 나오고 이어서 1번 문제가 열려요. 직접 인쇄하기 어려우면 선생님이 모아서 뽑아주실 수 있어요. 마지막방은 QR이 없어요. 3번 문제를 맞히면 바로 이어져요. QR을 붙인 뒤에 내용을 고쳐도 QR은 그대로 쓰면 돼요. 고친 내용은 자동으로 반영돼요.'
     ),
     el('div', { class: 'qr-grid' },
       ...QR_ROOMS.map(rc => {
@@ -1441,6 +1446,7 @@ async function renderQRView() {
         return el('div', { class: 'qr-item' },
           el('div', { class: 'title' }, rc.tag),
           el('div', { class: 'sub' }, (room.name || rc.tag.replace(/^[^\s]+\s/, '')) + (escapeRoomData.maker ? ` · ${escapeRoomData.maker}` : '')),
+          rc.idx === 1 ? el('div', { class: 'sub', style: 'color:var(--main); font-weight:600;' }, '입구에 붙이기 · 시작방 이야기가 먼저 나와요') : null,
           el('div', { class: 'qr-box', id }),
           el('div', { class: 'no-print', style: 'display:flex; gap:6px; margin-top:8px; justify-content:center;' },
             el('button', { class: 'small', onclick: (e) => copyUrl(url, e.target) }, '🔗 URL 복사'),
@@ -1563,78 +1569,110 @@ async function renderPlayer(params) {
     return;
   }
 
-  const room = escapeData.rooms[n];
-  if (!room) {
-    $('#app').innerHTML = '<div class="container"><div class="card"><h2>⚠️ 방을 찾을 수 없어요</h2></div></div>';
-    return;
+  // 1번 QR(또는 예전 시작방 QR)이면 시작방 이야기를 먼저 보여주고, "탐험 시작"을 누르면 1번 문제로
+  const start = escapeData.rooms[0];
+  if ((n === 0 || n === 1) && start && (start.story || start.image)) {
+    renderPrologue(escapeData, () => { show(1); window.scrollTo(0, 0); });
+  } else {
+    show(n);
   }
 
-  // 기존 형식과 호환되는 data 객체 만들기
-  const data = {
-    id: escapeData.id,
-    key: playKey,
-    linkFor,
-    a: escapeData.artist,
-    t: escapeData.title,
-    m: escapeData.maker || '',
-    n: n,
-    r: {
-      n: room.name || '',
-      s: room.story || '',
-      img: room.image || '',
-      q: room.question || '',
-      ans: room.answer || '',
-      h: room.hint || '',
-      sc: room.success || '',
-    },
-  };
+  function show(n) {
+    const room = escapeData.rooms[n];
+    if (!room) {
+      $('#app').innerHTML = '<div class="container"><div class="card"><h2>⚠️ 방을 찾을 수 없어요</h2></div></div>';
+      return;
+    }
 
-  setTheme(data.a);
-  const config = ROOM_CONFIG[data.n];
-  if (!config) {
-    $('#app').innerHTML = '<div class="container"><div class="card"><h2>⚠️ 방을 찾을 수 없어요</h2></div></div>';
-    return;
+    // 기존 형식과 호환되는 data 객체 만들기
+    const data = {
+      id: escapeData.id,
+      key: playKey,
+      linkFor,
+      a: escapeData.artist,
+      t: escapeData.title,
+      m: escapeData.maker || '',
+      n: n,
+      r: {
+        n: room.name || '',
+        s: room.story || '',
+        img: room.image || '',
+        q: room.question || '',
+        ans: room.answer || '',
+        h: room.hint || '',
+        sc: room.success || '',
+        scImg: room.successImage || '',
+      },
+    };
+
+    setTheme(data.a);
+    const config = ROOM_CONFIG[data.n];
+    if (!config) {
+      $('#app').innerHTML = '<div class="container"><div class="card"><h2>⚠️ 방을 찾을 수 없어요</h2></div></div>';
+      return;
+    }
+    const isFinal = config.isFinal;
+
+    const app = $('#app');
+    app.innerHTML = '';
+
+    const children = [
+      data.t ? el('div', { class: 'player-escape-title' }, `🎨 ${data.t}${data.m ? ' · ' + data.m : ''}`) : null,
+      el('div', { class: 'player-room-tag' }, config.tag),
+      el('h1', { class: 'player-room-title' }, data.r.n || config.tag.replace(/^[^\s]+\s/, '')),
+    ];
+
+    // 시작방 스토리는 프롤로그 스타일, 나머지 방은 일반 스타일
+    if (data.r.s) {
+      const storyClass = data.n === 0 ? 'player-overall-story' : 'player-story';
+      children.push(el('div', { class: storyClass }, data.r.s));
+    }
+
+    if (data.r.img) {
+      children.push(el('div', { class: 'clue-image-wrap' },
+        el('img', {
+          src: data.r.img, alt: '연출 이미지',
+          onclick: () => openLightbox(data.r.img),
+        }),
+        el('div', { class: 'caption' }, '🔍 사진을 누르면 크게 볼 수 있어요'),
+      ));
+    }
+
+    if (config.hasQ) {
+      children.push(renderQuestionBlock(data));
+    } else if (isFinal) {
+      children.push(renderFinalBlock(data));
+    } else {
+      children.push(el('div', { class: 'card', style: 'text-align:center;' },
+        el('p', {}, '준비가 되었다면, 첫 번째 QR을 찾아 스캔하세요.'),
+        el('p', { style: 'font-size:13px; color:var(--muted); margin-top:8px;' }, '🗺️ 탐험 시작!'),
+      ));
+    }
+
+    app.appendChild(el('div', { class: 'container player-page' },
+      ...children,
+      renderFooter(),
+    ));
   }
-  const isFinal = config.isFinal;
+}
 
+function renderPrologue(escapeData, onStart) {
+  const start = escapeData.rooms[0];
+  setTheme(escapeData.artist);
   const app = $('#app');
   app.innerHTML = '';
-
-  const children = [
-    data.t ? el('div', { class: 'player-escape-title' }, `🎨 ${data.t}${data.m ? ' · ' + data.m : ''}`) : null,
-    el('div', { class: 'player-room-tag' }, config.tag),
-    el('h1', { class: 'player-room-title' }, data.r.n || config.tag.replace(/^[^\s]+\s/, '')),
-  ];
-
-  // 시작방 스토리는 프롤로그 스타일, 나머지 방은 일반 스타일
-  if (data.r.s) {
-    const storyClass = data.n === 0 ? 'player-overall-story' : 'player-story';
-    children.push(el('div', { class: storyClass }, data.r.s));
-  }
-
-  if (data.r.img) {
-    children.push(el('div', { class: 'clue-image-wrap' },
-      el('img', {
-        src: data.r.img, alt: '연출 이미지',
-        onclick: () => openLightbox(data.r.img),
-      }),
-      el('div', { class: 'caption' }, '🔍 사진을 누르면 크게 볼 수 있어요'),
-    ));
-  }
-
-  if (config.hasQ) {
-    children.push(renderQuestionBlock(data));
-  } else if (isFinal) {
-    children.push(renderFinalBlock(data));
-  } else {
-    children.push(el('div', { class: 'card', style: 'text-align:center;' },
-      el('p', {}, '준비가 되었다면, 첫 번째 QR을 찾아 스캔하세요.'),
-      el('p', { style: 'font-size:13px; color:var(--muted); margin-top:8px;' }, '🗺️ 탐험 시작!'),
-    ));
-  }
-
   app.appendChild(el('div', { class: 'container player-page' },
-    ...children,
+    escapeData.title ? el('div', { class: 'player-escape-title' }, `🎨 ${escapeData.title}${escapeData.maker ? ' · ' + escapeData.maker : ''}`) : null,
+    el('div', { class: 'player-room-tag' }, ROOM_CONFIG[0].tag),
+    el('h1', { class: 'player-room-title' }, start.name || '시작방'),
+    start.story ? el('div', { class: 'player-overall-story' }, start.story) : null,
+    start.image ? el('div', { class: 'clue-image-wrap' },
+      el('img', { src: start.image, alt: '연출 이미지', onclick: () => openLightbox(start.image) }),
+      el('div', { class: 'caption' }, '🔍 사진을 누르면 크게 볼 수 있어요'),
+    ) : null,
+    el('div', { style: 'text-align:center; margin-top:22px;' },
+      el('button', { onclick: onStart }, '🗝️ 탐험 시작'),
+    ),
     renderFooter(),
   ));
 }
@@ -1657,8 +1695,10 @@ function renderQuestionBlock(data) {
 function checkAnswer(data) {
   const input = $('#answer-input');
   const fb = $('#feedback');
-  const guess = input.value.replace(/\s+/g, '').toLowerCase();
-  const correct = (data.r.ans || '').replace(/\s+/g, '').toLowerCase();
+  // 띄어쓰기·문장부호·기호(. , ! ? ~ ♥ 등)는 빼고 비교 → "고마워." = "고마워"
+  const norm = (t) => (t || '').replace(/[\s\p{P}\p{S}]/gu, '').toLowerCase();
+  const guess = norm(input.value);
+  const correct = norm(data.r.ans);
 
   if (!guess) {
     fb.className = 'feedback wrong show';
@@ -1681,6 +1721,13 @@ function checkAnswer(data) {
         el('button', {
           onclick: () => { location.href = data.linkFor(data.n + 1); },
         }, '🎭 마지막 방으로 →'),
+      ));
+    }
+    // 정답 사진은 정답 문구 바로 아래 (안내·버튼보다 위)
+    if (data.r.scImg && !$('#success-img')) {
+      fb.after(el('div', { class: 'clue-image-wrap', id: 'success-img' },
+        el('img', { src: data.r.scImg, alt: '정답 사진', onclick: () => openLightbox(data.r.scImg) }),
+        el('div', { class: 'caption' }, '🔍 사진을 누르면 크게 볼 수 있어요'),
       ));
     }
   } else {

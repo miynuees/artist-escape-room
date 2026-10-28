@@ -240,7 +240,7 @@ const field = (k, v, cls = '') => v ? `<div class="field"><div class="k">${k}</d
 function renderSample(key, s) {
   const p = ARTIST_PRESETS[key];
   const rooms = s.rooms.map((r, i) => {
-    const qr = i < 4 ? `QR ${i + 1}` : 'QR 없음';
+    const qr = i === 0 ? '1번 QR에서 먼저 나와요' : i <= 3 ? `QR ${i}` : 'QR 없음';
     let body = '';
     if (i === 0) {
       body = field('도입 이야기 (플레이어의 역할 + 첫 방의 분위기)', r.story);
@@ -254,7 +254,8 @@ function renderSample(key, s) {
       body = field('방 설명 · 연출 · 분위기', r.story)
         + field('마지막 질문 (체험자가 자기 이야기로 답을 남겨요)', r.question, 'question');
     }
-    const arrow = i === 3 ? '<div class="arrow">3번 문제를 맞히면 QR 없이 마지막방으로 이어져요</div>' : '';
+    const arrow = i === 0 ? '<div class="arrow">1번 QR을 스캔하면 이 이야기가 먼저 나오고, "탐험 시작"을 누르면 1번 문제로 이어져요</div>'
+      : i === 3 ? '<div class="arrow">3번 문제를 맞히면 QR 없이 마지막방으로 이어져요</div>' : '';
     return `<div class="room">
         <span class="tag">${TAGS[i]}<span class="qr">· ${qr}</span></span>
         ${r.name && r.name !== TAGS[i] ? `<span class="name">${esc(r.name)}</span>` : ''}

@@ -65,6 +65,9 @@ input, select { font-family: inherit; padding: 9px 12px; border: 1.5px solid #d4
 .room .row { display: grid; grid-template-columns: 84px 1fr; gap: 8px; font-size: 14px; margin-top: 4px; }
 .room .row .k { color: var(--muted); font-size: 12.5px; padding-top: 2px; }
 .room .row .v { white-space: pre-wrap; word-break: break-word; }
+.room .row .ed { width: 100%; box-sizing: border-box; font: inherit; font-size: 14px; padding: 6px 8px; border: 1.5px solid #d8d0c0; border-radius: 8px; resize: vertical; }
+.edit-warn { background: #fff4e0; border-left: 4px solid #e8a838; padding: 8px 12px; border-radius: 8px; font-size: 13px; margin: 8px 0; }
+.edit-note { font-size: 12.5px; color: var(--muted); margin: 6px 0 10px; }
 .room .row .v.ans { font-weight: 700; color: #b06a10; }
 .room .blank { color: #c0c0b0; font-style: italic; }
 .room img { max-width: 220px; max-height: 160px; border-radius: 8px; border: 2px solid var(--line); margin-top: 6px; cursor: zoom-in; }
@@ -159,7 +162,7 @@ const ARTISTS = {
 const ROOM_TAGS = ['🌀 시작방', '🔍 1번 문제', '❓ 2번 문제', '⚡ 3번 문제', '🎭 마지막방'];
 const PLAY_BASE = new URL('./', location.href).href;
 
-const state = { tab: 'interview', groups: {}, letterGroups: {}, escape: [], interview: [], students: [], responses: {}, sel: null };
+const state = { editing: null, tab: 'interview', groups: {}, letterGroups: {}, escape: [], interview: [], students: [], responses: {}, sel: null };
 const hasQR = x => !!(x.published || x.eid);
 const playUrl = (x, n = 0) => x.published ? `${PLAY_BASE}?mode=play&s=${encodeURIComponent(x.sid)}&n=${n}` : `${PLAY_BASE}?mode=play&eid=${encodeURIComponent(x.eid)}&n=${n}`;
 
@@ -214,6 +217,7 @@ function start() {
 }
 
 function setTab(t) {
+  if (!leaveEdit()) return;
   state.tab = t; state.sel = null;
   document.querySelectorAll('.tab').forEach(b => b.classList.toggle('on', b.dataset.tab === t));
   render();
@@ -226,6 +230,8 @@ function filtered(arr) {
 }
 
 function render() {
+  // 고치는 중엔 실시간 반영으로 화면을 다시 그리지 않음 (입력하던 글이 날아가지 않게)
+  if (state.editing && document.getElementById('editForm')) return;
   const view = document.getElementById('view');
   const bp = document.getElementById('bulkPrint');
   if (state.tab === 'escape') {
@@ -242,13 +248,23 @@ function render() {
   view.innerHTML = `
     <div class="layout">
       <div class="list">${arr.length ? arr.map(x => `
-        <div class="item ${x.sid === state.sel ? 'on' : ''}" onclick="state.sel='${esc(x.sid)}'; render();">
+        <div class="item ${x.sid === state.sel ? 'on' : ''}" onclick="pick('${esc(x.sid)}')">
           <div class="who">${esc(x.sid)} ${esc(x.name)}${groupBtns(x.sid)}</div>
           <div class="meta">${state.tab === 'escape' ? escapeMeta(x) : interviewMeta(x)}</div>
         </div>`).join('') : '<div class="empty">아직 아무도 없어요</div>'}
       </div>
       <div class="detail">${cur ? (state.tab === 'escape' ? escapeDetail(cur) : interviewDetail(cur)) : '<div class="empty">왼쪽에서 학생을 골라주세요</div>'}</div>
     </div>`;
+}
+
+function pick(sid) {
+  if (!leaveEdit()) return;
+  state.sel = sid; render();
+}
+function leaveEdit() {
+  if (!state.editing) return true;
+  if (!confirm('고치던 내용을 저장하지 않고 나갈까요?')) return false;
+  state.editing = null; return true;
 }
 
 // ---------- 방탈출 ----------
@@ -262,6 +278,7 @@ function escapeMeta(x) {
   return `${a ? a.emoji + ' ' : ''}${esc(d.title || '(제목 없음)')} · ${filledCount(d)}/5칸 ${hasQR(x) ? '· QR ✅' : ''} · ${fmt(x.updatedAt)}`;
 }
 function escapeDetail(x) {
+  if (state.editing === x.sid) return escapeEditForm(x);
   const d = x.data || {};
   const a = ARTISTS[d.artist] || { emoji: '', name: d.artist || '' };
   const rooms = d.rooms || [];
@@ -276,6 +293,8 @@ function escapeDetail(x) {
         ? `<a href="${esc(playUrl(x))}" target="_blank"><button class="ghost">👁️ 체험해보기</button></a>
            <button onclick="printOne('${esc(x.sid)}')">🖨️ QR 인쇄</button>`
         : '<span class="pill gray">QR 아직 안 만듦</span>'}
+      ${x.data ? `<button class="ghost" onclick="startEdit('${esc(x.sid)}')">✏️ 고치기</button>` : ''}
+      ${x.teacherEditAt ? `<span class="pill gray">선생님이 고침 ${fmt(x.teacherEditAt)}</span>` : ''}
     </div>
     ${ROOM_TAGS.map((tag, i) => {
       const r = rooms[i] || {};
@@ -389,6 +408,65 @@ async function renameStudent(sid) {
 // ---------- QR 인쇄: 학생 한 명당 A4 한 장 (QR 3장, 시작방은 1번에 합쳐짐) ----------
 // 시작방은 1번 QR에 합쳐짐 → QR 3장 (주소의 n은 1·2·3)
 const QR_ROOMS = [1, 2, 3];
+// ---------- 선생님이 학생 방탈출 고치기 ----------
+function startEdit(sid) {
+  state.editing = sid;
+  const x = state.escape.find(e => e.sid === sid);
+  document.querySelector('.detail').innerHTML = escapeEditForm(x);
+}
+function escapeEditForm(x) {
+  const d = x.data || {};
+  const rooms = d.rooms || [];
+  const box = (ri, f, label, v, rows = 3) => `<div class="row"><div class="k">${label}</div><div class="v"><textarea class="ed" data-r="${ri}" data-f="${f}" rows="${rows}">${esc(v)}</textarea></div></div>`;
+  const line = (ri, f, label, v) => `<div class="row"><div class="k">${label}</div><div class="v"><input class="ed" data-r="${ri}" data-f="${f}" value="${esc(v)}"></div></div>`;
+  const recent = Date.now() - (x.updatedAt || 0) < 3 * 60 * 1000;
+  return `<div id="editForm">
+    <div class="head">
+      <h2>✏️ ${esc(x.sid)} ${esc(x.name)} 방탈출 고치기</h2>
+      <button onclick="saveEdit('${esc(x.sid)}')">💾 저장</button>
+      <button class="ghost" onclick="cancelEdit()">취소</button>
+    </div>
+    ${recent ? `<div class="edit-warn">⚠️ 이 학생이 ${fmt(x.updatedAt)}에 작업했어요. 학생이 지금도 고치고 있으면 선생님이 고친 내용과 엇갈릴 수 있으니, 잠깐 멈추게 한 뒤 저장해 주세요.</div>` : ''}
+    <div class="edit-note">저장하면 체험 화면(QR)에 바로 반영되고, 학생 화면도 고친 내용으로 바뀌어요. 정답이 여러 개면 / 로 나눠요.</div>
+    <div class="room">${line(-1, 'title', '방탈출 제목', d.title)}</div>
+    ${ROOM_TAGS.map((tag, i) => {
+      const r = rooms[i] || {};
+      return `<div class="room">
+        <div class="tag">${tag}</div>
+        ${box(i, 'story', i === 0 ? '도입 이야기' : '방 설명', r.story, 4)}
+        ${i >= 1 && i <= 3 ? box(i, 'question', '문제', r.question) + line(i, 'answer', '정답', r.answer) + box(i, 'hint', '힌트', r.hint, 2) + box(i, 'success', '정답 문구', r.success, 2) : ''}
+        ${i === 4 ? box(i, 'question', '마지막 질문', r.question, 2) : ''}
+      </div>`;
+    }).join('')}
+    <div style="text-align:right;"><button onclick="saveEdit('${esc(x.sid)}')">💾 저장</button></div>
+  </div>`;
+}
+function cancelEdit() {
+  if (!leaveEdit()) return;
+  render();
+}
+async function saveEdit(sid) {
+  const x = state.escape.find(e => e.sid === sid);
+  if (!x || !x.data) return;
+  const d = JSON.parse(JSON.stringify(x.data));
+  d.rooms = d.rooms || [];
+  document.querySelectorAll('#editForm .ed').forEach(inp => {
+    const ri = Number(inp.dataset.r), f = inp.dataset.f;
+    if (ri < 0) d[f] = inp.value;
+    else { d.rooms[ri] = d.rooms[ri] || { idx: ri }; d.rooms[ri][f] = inp.value; }
+  });
+  const now = Date.now();
+  const update = { data: d, updatedAt: now, teacherEditAt: now };
+  if (x.published) update.published = d;   // 이미 QR을 만든 학생은 체험 화면에도 바로 반영
+  try {
+    await db.collection('artclass_escape').doc(sid).set(update, { merge: true });
+    state.editing = null;
+    render();
+  } catch (e) {
+    console.error(e); alert('저장하지 못했어요. 인터넷을 확인하고 다시 눌러주세요.');
+  }
+}
+
 const QR_LABELS = ['1번 문제 · 입구', '2번 문제', '3번 문제'];
 function printOne(sid) {
   const x = state.escape.find(e => e.sid === sid);

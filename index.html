@@ -924,6 +924,7 @@ function renderLogin() {
       me = { sid: s, name: n };
       localStorage.setItem(LOGIN_KEY, JSON.stringify(me));
       await pullServerDraft();
+      watchTeacherEdits();
       renderLanding();
     } catch (e) {
       err.textContent = '연결에 실패했어요. 인터넷을 확인해주세요.';
@@ -948,12 +949,41 @@ async function pullServerDraft() {
     const snap = await myEscapeRef().get();
     if (snap.exists && snap.data().data) {
       localStorage.setItem(draftKey(), JSON.stringify(snap.data().data));
+      // 서버본을 그대로 가져왔으니 선생님이 고친 것도 이미 들어 있음
+      if (snap.data().teacherEditAt) localStorage.setItem(seenKey(), String(snap.data().teacherEditAt));
     }
   } catch (e) { console.error(e); }
 }
 
+// 선생님이 선생님 화면에서 내 방탈출을 고치면 → 이 컴퓨터의 작업도 고친 내용으로 바꿈
+// (안 그러면 학생이 다음에 저장할 때 선생님이 고친 걸 덮어씀)
+const seenKey = () => 'escape_teacherSeen_' + (me ? me.sid : '');
+let teacherWatch = null;
+function watchTeacherEdits() {
+  if (!me || !db || teacherWatch) return;
+  teacherWatch = myEscapeRef().onSnapshot(snap => {
+    const doc = snap.exists ? snap.data() : null;
+    if (!doc || !doc.teacherEditAt || !doc.data) return;
+    if (Number(localStorage.getItem(seenKey()) || 0) >= doc.teacherEditAt) return;
+    localStorage.setItem(seenKey(), String(doc.teacherEditAt));
+    clearTimeout(pushTimer);
+    localStorage.setItem(draftKey(), JSON.stringify(doc.data));
+    if (escapeRoomData && !escapeRoomData.isSample) {
+      escapeRoomData = doc.data;
+      if ($('.room-form')) renderBuilder();
+    }
+    showToast('✏️ 선생님이 내 방탈출을 고쳐 주셨어요. 고친 내용으로 바뀌었어요.');
+  }, e => console.error(e));
+}
+function showToast(msg) {
+  const t = el('div', { style: 'position:fixed; left:50%; bottom:24px; transform:translateX(-50%); z-index:999; max-width:90vw; background:#fff; color:#333; border:2px solid var(--main); border-radius:12px; padding:12px 18px; font-size:14px; font-weight:600; box-shadow:0 6px 20px rgba(0,0,0,.15);' }, msg);
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 6000);
+}
+
 function logout() {
   if (!confirm('로그아웃할까요?')) return;
+  if (teacherWatch) { teacherWatch(); teacherWatch = null; }
   localStorage.removeItem(LOGIN_KEY);
   me = null; escapeRoomData = null;
   renderLogin();
@@ -1242,7 +1272,7 @@ function renderRoomForm(idx) {
         el('label', {}, '정답 (체험자가 맞혀야 하는 값)'),
         el('input', {
           type: 'text',
-          placeholder: '예) 너를사랑한다',
+          placeholder: '예) 너를사랑한다  (정답이 여러 개면 / 로 나눠요: 고마워/감사해)',
           value: room.answer || '',
           oninput: onInput('answer'),
         }),
@@ -1698,7 +1728,8 @@ function checkAnswer(data) {
   // 띄어쓰기·문장부호·기호(. , ! ? ~ ♥ 등)는 빼고 비교 → "고마워." = "고마워"
   const norm = (t) => (t || '').replace(/[\s\p{P}\p{S}]/gu, '').toLowerCase();
   const guess = norm(input.value);
-  const correct = norm(data.r.ans);
+  // 정답 여러 개는 / 로 구분 → "고마워/감사해" 둘 다 정답
+  const corrects = (data.r.ans || '').split('/').map(norm).filter(Boolean);
 
   if (!guess) {
     fb.className = 'feedback wrong show';
@@ -1706,7 +1737,7 @@ function checkAnswer(data) {
     return;
   }
 
-  if (guess === correct) {
+  if (corrects.includes(guess)) {
     fb.className = 'feedback correct show';
     fb.innerHTML = '✅ 정답입니다!' + (data.r.sc ? '\n\n' + escapeHtml(data.r.sc) : '');
     fb.innerHTML = fb.innerHTML.replace(/\n/g, '<br>');
@@ -1818,6 +1849,7 @@ function renderFooter() {
 
 // ==================== 시작 ====================
 route();
+if (new URLSearchParams(location.search).get('mode') !== 'play') watchTeacherEdits();
 </script>
 </body>
 </html>

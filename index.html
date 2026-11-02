@@ -963,6 +963,18 @@ function watchTeacherEdits() {
   if (!me || !db || teacherWatch) return;
   teacherWatch = myEscapeRef().onSnapshot(snap => {
     const doc = snap.exists ? snap.data() : null;
+    // 선생님이 대신 QR을 만들어 줬으면 → 이후 저장도 체험 화면에 반영되게 qrMade 켬
+    if (doc && doc.published) {
+      if (escapeRoomData && !escapeRoomData.isSample && !escapeRoomData.qrMade) {
+        escapeRoomData.qrMade = true;
+        saveDraft();
+      } else if (!escapeRoomData || escapeRoomData.isSample) {
+        try {
+          const local = JSON.parse(localStorage.getItem(draftKey()) || 'null');
+          if (local && !local.qrMade) { local.qrMade = true; localStorage.setItem(draftKey(), JSON.stringify(local)); }
+        } catch {}
+      }
+    }
     if (!doc || !doc.teacherEditAt || !doc.data) return;
     if (Number(localStorage.getItem(seenKey()) || 0) >= doc.teacherEditAt) return;
     localStorage.setItem(seenKey(), String(doc.teacherEditAt));

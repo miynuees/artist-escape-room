@@ -235,7 +235,7 @@ function render() {
   const view = document.getElementById('view');
   const bp = document.getElementById('bulkPrint');
   if (state.tab === 'escape') {
-    const n = filtered(state.escape).filter(hasQR).length;
+    const n = filtered(state.escape).filter(x => hasQR(x) || x.data).length;
     bp.classList.remove('hidden'); bp.textContent = `🖨️ 보이는 학생 QR 모아 인쇄 (${n}명)`; bp.disabled = !n;
   } else bp.classList.add('hidden');
   if (state.tab === 'accounts') return renderAccounts(view);
@@ -292,6 +292,8 @@ function escapeDetail(x) {
       ${hasQR(x)
         ? `<a href="${esc(playUrl(x))}" target="_blank"><button class="ghost">👁️ 체험해보기</button></a>
            <button onclick="printOne('${esc(x.sid)}')">🖨️ QR 인쇄</button>`
+        : x.data ? `<span class="pill gray">QR 아직 안 만듦</span>
+           <button onclick="makeQR('${esc(x.sid)}')">🔳 QR 만들기</button>`
         : '<span class="pill gray">QR 아직 안 만듦</span>'}
       ${x.data ? `<button class="ghost" onclick="startEdit('${esc(x.sid)}')">✏️ 고치기</button>` : ''}
       ${x.teacherEditAt ? `<span class="pill gray">선생님이 고침 ${fmt(x.teacherEditAt)}</span>` : ''}
@@ -472,12 +474,30 @@ function printOne(sid) {
   const x = state.escape.find(e => e.sid === sid);
   if (x) printQRPages([x]);
 }
-function printFiltered() {
-  const list = filtered(state.escape).filter(hasQR);
+// 학생이 "QR 생성"을 안 눌렀어도 선생님이 대신 만듦 (학생이 누른 것과 똑같이 published 저장)
+// 학생 화면은 published가 생긴 걸 보고 qrMade를 켜서, 이후 고치는 내용도 체험 화면에 반영됨
+async function publishFor(x) {
+  const d = JSON.parse(JSON.stringify(x.data));
+  d.qrMade = true;
+  await db.collection('artclass_escape').doc(x.sid).set({ data: d, published: d }, { merge: true });
+  x.data = d; x.published = d;
+}
+async function makeQR(sid) {
+  const x = state.escape.find(e => e.sid === sid);
+  if (!x || !x.data) return;
+  if (!confirm(`${x.sid} ${x.name} 학생의 QR을 대신 만들까요?\n지금까지 저장된 내용으로 체험할 수 있게 되고, 학생이 이어서 고치는 내용도 바로 반영돼요.`)) return;
+  try { await publishFor(x); render(); }
+  catch (e) { console.error(e); alert('QR을 만들지 못했어요. 인터넷을 확인해주세요.'); }
+}
+async function printFiltered() {
+  const all = filtered(state.escape);
+  const missing = all.filter(x => !hasQR(x) && x.data);
+  const list = all.filter(x => hasQR(x) || x.data);
   if (!list.length) return;
-  const skipped = filtered(state.escape).length - list.length;
   if (!confirm(`${list.length}명의 QR을 한 사람당 한 장씩 인쇄할까요?` +
-    (skipped ? `\n(아직 "QR 생성"을 누르지 않은 ${skipped}명은 빠져요)` : ''))) return;
+    (missing.length ? `\n(아직 "QR 생성"을 누르지 않은 ${missing.length}명은 선생님이 대신 만들어서 같이 인쇄해요)` : ''))) return;
+  try { for (const x of missing) await publishFor(x); }
+  catch (e) { console.error(e); alert('QR을 만들지 못했어요. 인터넷을 확인해주세요.'); return; }
   printQRPages(list);
 }
 async function printQRPages(list) {

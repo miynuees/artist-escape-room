@@ -105,7 +105,22 @@ th { background: #eef6e4; color: var(--main-d); font-size: 13px; }
   .pp-cell .sub { font-size: 9pt; color: #555; margin-bottom: 3mm; }
   .pp-cell img.pq { width: 62mm; height: 62mm; display: block; margin: 0 auto; }
   .pp-foot { margin-top: 6mm; font-size: 10pt; color: #555; text-align: center; }
+  /* 작은 QR: 여러 학생을 한 장에 (--q = QR 한 변, --cap = 글씨 크기) */
+  .ps-wrap { display: flex; flex-wrap: wrap; gap: 3mm 4mm; align-content: flex-start; font-family: 'Noto Sans KR', sans-serif; color: #222; }
+  .ps { break-inside: avoid; }
+  .ps-h { font-size: calc(var(--cap) + 1pt); font-weight: 700; margin-bottom: .6mm; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: calc((var(--q) + 3mm) * 3); }
+  .ps-row { display: flex; }
+  .ps-c { border: .8px dashed #999; padding: 1.5mm 1.5mm .6mm; text-align: center; }
+  .ps-c + .ps-c { border-left: none; }
+  .ps-c img.pq { width: var(--q); height: var(--q); display: block; }
+  .ps-c .cap { font-size: var(--cap); line-height: 1.3; white-space: nowrap; letter-spacing: -.2px; }
 }
+.size-pick { position: fixed; inset: 0; background: rgba(0,0,0,.35); display: flex; align-items: center; justify-content: center; z-index: 100; }
+.size-pick .box { background: #fff; border-radius: 16px; padding: 22px; width: min(360px, 92vw); box-shadow: 0 8px 30px rgba(0,0,0,.2); }
+.size-pick .box p { margin: 0 0 12px; font-size: 14px; line-height: 1.6; white-space: pre-line; }
+.size-pick .opts { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px; }
+.size-pick .opts button { padding: 12px 6px; font-size: 15px; }
+.size-pick .opts button small { display: block; font-size: 11px; font-weight: 400; opacity: .75; margin-top: 2px; }
 
 .lightbox { position: fixed; inset: 0; background: rgba(0,0,0,.85); display: flex; align-items: center; justify-content: center; z-index: 99; cursor: zoom-out; padding: 20px; }
 .lightbox img { max-width: 100%; max-height: 100%; border-radius: 8px; }
@@ -472,7 +487,33 @@ async function saveEdit(sid) {
 const QR_LABELS = ['1번 문제 · 입구', '2번 문제', '3번 문제'];
 function printOne(sid) {
   const x = state.escape.find(e => e.sid === sid);
-  if (x) printQRPages([x]);
+  if (!x) return;
+  pickPrintSize(`${x.sid} ${x.name} 학생의 QR을 인쇄해요.`).then(size => { if (size) printQRPages([x], size); });
+}
+// QR 크기 고르기: 'big' = 학생당 한 장(6.2cm), 숫자 = QR 한 변 mm (여러 학생을 한 장에)
+function pickPrintSize(msg) {
+  return new Promise(resolve => {
+    const wrap = document.createElement('div');
+    wrap.className = 'size-pick';
+    wrap.innerHTML = `<div class="box">
+      <p>${esc(msg)}\nQR 크기를 골라주세요.</p>
+      <div class="opts">
+        <button data-s="10">1cm<small>한 장에 가장 많이</small></button>
+        <button data-s="15">1.5cm</button>
+        <button data-s="20">2cm</button>
+        <button data-s="big" class="ghost">크게 6cm<small>학생당 한 장</small></button>
+      </div>
+      <button class="ghost" data-s="" style="width:100%;">취소</button>
+    </div>`;
+    wrap.onclick = e => {
+      const b = e.target.closest('button');
+      if (!b && e.target !== wrap) return;
+      wrap.remove();
+      const s = b ? b.dataset.s : '';
+      resolve(s === 'big' ? 'big' : s ? Number(s) : null);
+    };
+    document.body.appendChild(wrap);
+  });
 }
 // 학생이 "QR 생성"을 안 눌렀어도 선생님이 대신 만듦 (학생이 누른 것과 똑같이 published 저장)
 // 학생 화면은 published가 생긴 걸 보고 qrMade를 켜서, 이후 고치는 내용도 체험 화면에 반영됨
@@ -494,19 +535,33 @@ async function printFiltered() {
   const missing = all.filter(x => !hasQR(x) && x.data);
   const list = all.filter(x => hasQR(x) || x.data);
   if (!list.length) return;
-  if (!confirm(`${list.length}명의 QR을 한 사람당 한 장씩 인쇄할까요?` +
-    (missing.length ? `\n(아직 "QR 생성"을 누르지 않은 ${missing.length}명은 선생님이 대신 만들어서 같이 인쇄해요)` : ''))) return;
+  const size = await pickPrintSize(`${list.length}명의 QR을 인쇄해요.` +
+    (missing.length ? `\n(아직 "QR 생성"을 누르지 않은 ${missing.length}명은 선생님이 대신 만들어서 같이 인쇄해요)` : ''));
+  if (!size) return;
   try { for (const x of missing) await publishFor(x); }
   catch (e) { console.error(e); alert('QR을 만들지 못했어요. 인터넷을 확인해주세요.'); return; }
-  printQRPages(list);
+  printQRPages(list, size);
 }
-async function printQRPages(list) {
+async function printQRPages(list, size = 'big') {
   if (!window.QRCodeStyling) { alert('QR 도구를 불러오지 못했어요. 새로고침 후 다시 해주세요.'); return; }
   const busy = document.createElement('div');
   busy.className = 'print-busy'; busy.textContent = 'QR 준비 중...';
   document.body.appendChild(busy);
   const area = document.getElementById('printArea');
-  area.innerHTML = list.map((x, i) => {
+  const small = size !== 'big';
+  area.style.removeProperty('--q'); area.style.removeProperty('--cap');
+  if (small) {
+    // 작은 QR: 학생마다 [학번 이름] 아래 QR 3개 한 줄, 칸마다 "학번-번호" (잘라도 누구 건지 알게)
+    area.style.setProperty('--q', size + 'mm');
+    area.style.setProperty('--cap', ({ 10: 5, 15: 6, 20: 7 }[size] || 6) + 'pt');
+    area.innerHTML = `<div class="ps-wrap">${list.map((x, i) => `
+      <div class="ps">
+        <div class="ps-h">${esc(x.sid)} ${esc(x.name)}</div>
+        <div class="ps-row">${QR_ROOMS.map(n => `
+          <div class="ps-c"><div id="pq-${i}-${n}"></div><div class="cap">${esc(x.sid)}-${n}</div></div>`).join('')}
+        </div>
+      </div>`).join('')}</div>`;
+  } else area.innerHTML = list.map((x, i) => {
     const d = x.published || x.data || {};
     const a = ARTISTS[d.artist] || { name: '' };
     const rooms = d.rooms || [];
@@ -532,8 +587,9 @@ async function printQRPages(list) {
         busy.textContent = `QR 준비 중... (${i + 1}/${list.length}명)`;
         const qr = new QRCodeStyling({
           // 인쇄용은 반듯한 네모 모양 (작게 뽑아도 잘 읽히게)
-          width: 600, height: 600, type: 'canvas', data: playUrl(list[i], n), margin: 12,
-          qrOptions: { errorCorrectionLevel: 'M' },
+          // 작은 QR은 오류보정 L(칸 수가 줄어 점이 굵어짐), 흰 여백은 인쇄 칸 안쪽 여백으로 대신
+          width: 600, height: 600, type: 'canvas', data: playUrl(list[i], n), margin: small ? 0 : 12,
+          qrOptions: { errorCorrectionLevel: small ? 'L' : 'M' },
           dotsOptions: { color: '#000000', type: 'square' },
           cornersSquareOptions: { color: '#000000', type: 'square' },
           cornersDotOptions: { color: '#000000', type: 'square' },

@@ -598,6 +598,8 @@ async function printQRPages(list, size = 'big') {
         const blob = await qr.getRawData('png');
         const img = new Image();
         img.src = await new Promise(r => { const fr = new FileReader(); fr.onload = () => r(fr.result); fr.readAsDataURL(blob); });
+        // 그림이 완전히 그려진 다음에 붙임 (안 그러면 마지막 QR이 빈 채로 인쇄 창이 열림)
+        await img.decode().catch(() => new Promise(r => { if (img.complete) r(); else img.onload = img.onerror = r; }));
         img.className = 'pq';
         document.getElementById(`pq-${i}-${n}`).appendChild(img);
       }
@@ -606,6 +608,8 @@ async function printQRPages(list, size = 'big') {
     busy.remove(); alert('QR을 만들지 못했어요. 새로고침 후 다시 해주세요.'); return;
   }
   busy.remove();
+  // 붙인 QR이 화면에 다 자리 잡을 때까지 잠깐 기다린 뒤 인쇄
+  await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(() => setTimeout(r, 300))));
   window.print();
 }
 

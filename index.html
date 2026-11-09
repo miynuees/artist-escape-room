@@ -331,6 +331,7 @@ label {
   line-height: 0;
 }
 .qr-item .qr-box svg,
+.qr-item .qr-box img,
 .qr-item .qr-box canvas {
   display: block;
   width: 180px !important;
@@ -338,6 +339,7 @@ label {
 }
 @media print {
   .qr-item .qr-box canvas,
+  .qr-item .qr-box img,
   .qr-item .qr-box svg { width: 180px !important; height: 180px !important; }
 }
 .qr-item .url-copy {
@@ -1520,8 +1522,12 @@ async function renderQRView() {
         cornersDotOptions: { color: '#000000', type: 'square' },
         backgroundOptions: { color: '#ffffff' },
       });
-      qr.append(box);
-      await new Promise(r => setTimeout(r, 60));
+      // 그림으로 완전히 만든 다음에 붙임 (append 후 잠깐만 기다리면 느린 컴퓨터에서 마지막 QR이 빈칸으로 남았음)
+      const blob = await qr.getRawData('png');
+      const img = new Image();
+      img.src = await new Promise(r => { const fr = new FileReader(); fr.onload = () => r(fr.result); fr.readAsDataURL(blob); });
+      await img.decode().catch(() => {});
+      box.appendChild(img);
     } catch (err) {
       box.innerHTML = `<div style="padding:20px; color:#c04040; font-size:11px;">⚠️ QR 생성 실패 (${url.length}자)</div>`;
     }
